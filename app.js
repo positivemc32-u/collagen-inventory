@@ -10,6 +10,9 @@ const state = {
   filter: 'all',
   custQuery: '',
   showPaused: true,
+  allYm: 'all', // 一覧画面の年月（'all' はすべての月）
+  allQuery: '',
+  allFilter: 'all',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -26,6 +29,23 @@ function flavorBadge(f, qty) {
   const cls = f === 'ザクロ' ? 'zakuro' : 'yuzu';
   return `<span class="badge ${cls}">${esc(f)}${qty != null ? ' × ' + esc(qty) : ''}</span>`;
 }
+// 味ごとの個数バッジ（0個の味は出さない）
+function qtyBadges(q) {
+  const out = FLAVORS.filter((f) => q && q[f] > 0).map((f) => flavorBadge(f, q[f]));
+  return out.length ? out.join('') : '<span class="badge danger">個数未入力</span>';
+}
+// ザクロ・ゆずの個数入力欄（顧客登録と記録の詳細で共通）
+function qtyFields(q, labelPrefix) {
+  return `<div class="row2">${FLAVORS.map((f) => `
+    <div class="field"><label>${labelPrefix}${f}（個）</label>
+      <input type="number" name="qty_${f}" min="0" inputmode="numeric" value="${esc(q[f])}"></div>`).join('')}
+  </div>`;
+}
+function readQty(formData) {
+  const q = {};
+  FLAVORS.forEach((f) => { q[f] = Math.max(0, Math.floor(Number(formData.get('qty_' + f))) || 0); });
+  return q;
+}
 function persist() { saveDb(db); }
 
 function toast(msg) {
@@ -37,16 +57,29 @@ function toast(msg) {
 }
 
 // ---------- 全体の描画 ----------
-const TITLES = { list: '発送リスト', customers: '顧客', stock: '在庫', backup: 'バックアップ' };
+const TITLES = { list: '発送リスト', all: '全記録の一覧', customers: '顧客', stock: '在庫', backup: 'バックアップ' };
+
+// 上部に大きく表示する年月
+function renderMonthHeader() {
+  const label = $('#monthLabel');
+  const hint = $('#monthHint');
+  if (state.tab === 'all') {
+    label.textContent = state.allYm === 'all' ? '全期間' : ymLabel(state.allYm);
+    hint.textContent = state.allYm === 'all' ? '◀ ▶ で月を選べます' : '年月を押すと全期間に戻ります';
+  } else {
+    label.textContent = ymLabel(state.ym);
+    hint.textContent = state.ym === ymOf() ? '今月' : '年月を押すと今月に戻ります';
+  }
+  label.classList.toggle('other', state.tab === 'all' ? state.allYm !== 'all' : state.ym !== ymOf());
+}
 
 function render() {
   $('#pageTitle').textContent = TITLES[state.tab];
-  $('#monthSwitch').hidden = !(state.tab === 'list' || state.tab === 'stock');
-  const isThis = state.ym === ymOf();
-  $('#monthLabel').textContent = ymLabel(state.ym) + (isThis ? '' : ' ↩');
+  renderMonthHeader();
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
   renderNotices();
   if (state.tab === 'list') renderList();
+  else if (state.tab === 'all') renderAll();
   else if (state.tab === 'customers') renderCustomers();
   else if (state.tab === 'stock') renderStock();
   else renderBackup();
@@ -102,7 +135,7 @@ function renderList() {
     <input class="search" type="search" placeholder="🔍 名前で検索" value="${esc(state.query)}" data-input="query">
     <div class="chips">${FILTERS.map(([k, l]) => `<button class="chip${state.filter === k ? ' active' : ''}" data-action="filter" data-key="${k}">${l}</button>`).join('')}</div>
     <div id="results"></div>
-    <button class="btn block" data-action="add-irregular" style="margin-top:8px">＋ イレギュラーの人を${ymLabel(state.ym)}に追加</button>`;
+    <button class="btn block" data-action="add-irregular" style="margin-top:8px">＋ 単発の人を${ymLabel(state.ym)}に追加</button>`;
   renderListResults();
 }
 
@@ -133,10 +166,10 @@ function renderListResults() {
 
 function shipCard({ customer: c, record: r }) {
   const done = isDone(r.status);
-  const badges = [flavorBadge(r.flavor, r.qty)];
+  const badges = [qtyBadges(r.qty)];
   badges.push(`<span class="badge">${esc(c.plan)}</span>`);
-  if (c.plan === '隔月') badges.push(`<span class="badge primary">隔月・今月発送月</span>`);
-  if (r.irregular) badges.push(`<span class="badge primary">今月追加</span>`);
+  if (c.plan === '隔月') badges.push(`<span class="badge primary">隔月・この月が発送月</span>`);
+  if (r.irregular) badges.push(`<span class="badge primary">この月に追加</span>`);
   badges.push(`<span class="badge ${c.delivery === '手渡し' ? 'warn' : ''}">${esc(c.delivery)}</span>`);
   if (c.paused) badges.push(`<span class="badge">休止中</span>`);
 
@@ -172,12 +205,14 @@ function updateRecordField(cid, field, value) {
   persist();
 }
 
-function openRecordSheet(cid) {
+function openRecordSheet(cid, ym) {
+  ym = ym || state.ym;
   const c = findCustomer(db, cid);
   if (!c) return;
-  const r = getRecord(db, state.ym, cid) || makeRecord(c, false);
+  const r = getRecord(db, ym, cid) || makeRecord(c, false);
   openSheet(`
-    <h2>${esc(c.name)} さん ― ${ymLabel(state.ym)}</h2>
+    <p class="sheet-ym">${ymLabel(ym)}の記録</p>
+    <h2>${esc(c.name)} さん</h2>
     <form class="form" id="recordForm">
       <div class="row2">
         <div class="field"><label>状況</label><select name="status">${options(STATUSES, r.status)}</select></div>
@@ -187,10 +222,7 @@ function openRecordSheet(cid) {
         <div class="field"><label>伝票</label><select name="slip">${options(SLIPS, r.slip)}</select></div>
         <div class="field"><label>伝票番号</label><input type="text" name="tracking" inputmode="numeric" value="${esc(r.tracking)}" placeholder="追跡番号"></div>
       </div>
-      <div class="row2">
-        <div class="field"><label>この月の味</label><select name="flavor">${options(FLAVORS, r.flavor)}</select></div>
-        <div class="field"><label>この月の個数</label><input type="number" name="qty" min="0" inputmode="numeric" value="${esc(r.qty)}"></div>
-      </div>
+      ${qtyFields(r.qty, 'この月の')}
       <div class="field"><label>メモ</label><textarea name="memo" placeholder="この月のメモ">${esc(r.memo)}</textarea></div>
       <div class="card small" style="margin:0">
         <b>${esc(c.delivery)}</b>${c.delivery === '直送' ? '　🕒 ' + esc(c.timeSlot) : ''}<br>
@@ -199,7 +231,7 @@ function openRecordSheet(cid) {
         ${c.memo ? '📝 ' + esc(c.memo) : ''}
         <div style="margin-top:8px"><button type="button" class="btn small" data-action="edit-customer" data-id="${c.id}">顧客情報を編集</button></div>
       </div>
-      ${r.irregular ? `<button type="button" class="btn danger" data-action="remove-irregular" data-id="${c.id}">${ymLabel(state.ym)}のリストから外す</button>` : ''}
+      ${r.irregular ? `<button type="button" class="btn danger" data-action="remove-irregular" data-id="${c.id}" data-ym="${ym}">${ymLabel(ym)}のリストから外す</button>` : ''}
       <div class="sheet-actions">
         <button type="button" class="btn" data-action="close-sheet">キャンセル</button>
         <button type="submit" class="btn primary">保存</button>
@@ -208,9 +240,11 @@ function openRecordSheet(cid) {
   $('#recordForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const rec = ensureRecord(db, state.ym, cid, r.irregular);
-    ['status', 'payment', 'slip', 'tracking', 'flavor', 'memo'].forEach((k) => { rec[k] = f.get(k); });
-    rec.qty = Math.max(0, Number(f.get('qty')) || 0);
+    const qty = readQty(f);
+    if (!totalQty(qty) && !confirm('ザクロ・ゆずの個数がどちらも0個です。このまま保存しますか？')) return;
+    const rec = ensureRecord(db, ym, cid, r.irregular);
+    ['status', 'payment', 'slip', 'tracking', 'memo'].forEach((k) => { rec[k] = f.get(k); });
+    rec.qty = qty;
     persist();
     closeSheet();
     toast('保存しました');
@@ -220,18 +254,109 @@ function openRecordSheet(cid) {
 
 function openAddIrregular() {
   const recs = db.records[state.ym] || {};
-  const cands = db.customers.filter((c) => c.plan === 'イレギュラー' && !recs[c.id]);
-  const others = db.customers.filter((c) => c.plan !== 'イレギュラー' && !shipList(db, state.ym).some((it) => it.customer.id === c.id));
+  const cands = db.customers.filter((c) => c.plan === '単発' && !recs[c.id]);
+  const others = db.customers.filter((c) => c.plan !== '単発' && !shipList(db, state.ym).some((it) => it.customer.id === c.id));
   const btn = (c) => `<button type="button" class="btn" data-action="pick-irregular" data-id="${c.id}">
-      <span>${esc(c.name)}${c.paused ? '（休止中）' : ''}</span>${flavorBadge(c.flavor, c.qty)}</button>`;
+      <span>${esc(c.name)}${c.paused ? '（休止中）' : ''}</span><span>${qtyBadges(c.qty)}</span></button>`;
   openSheet(`
     <h2>${ymLabel(state.ym)}に追加する人</h2>
-    <p class="small muted">イレギュラー便の人を選ぶと、この月の発送リストに入ります。</p>
+    <p class="small muted">単発の人を選ぶと、${ymLabel(state.ym)}の発送リストに入ります。</p>
     <div class="pick-list form">
-      ${cands.length ? cands.map(btn).join('') : '<p class="muted">追加できるイレギュラーの人はいません。<br>顧客画面で定期便を「イレギュラー」にして登録してください。</p>'}
+      ${cands.length ? cands.map(btn).join('') : '<p class="muted">追加できる単発の人はいません。<br>顧客画面で定期便を「単発」にして登録してください。</p>'}
     </div>
-    ${others.length ? `<p class="section-title">その他（今月お休みの隔月の人・休止中の人など）</p><div class="pick-list form">${others.map(btn).join('')}</div>` : ''}
+    ${others.length ? `<p class="section-title">その他（この月お休みの隔月の人・休止中の人など）</p><div class="pick-list form">${others.map(btn).join('')}</div>` : ''}
     <div class="sheet-actions"><button type="button" class="btn" data-action="close-sheet">閉じる</button></div>`);
+}
+
+// ---------- 全記録の一覧 ----------
+const ALL_FILTERS = [
+  ['all', 'すべて'],
+  ['pending', '未発送だけ'],
+  ['unpaid', '未入金だけ'],
+  ['noslip', '伝票未送付'],
+];
+
+function renderAll() {
+  const months = listMonths(db);
+  if (state.allYm !== 'all' && !months.includes(state.allYm)) months.push(state.allYm);
+  months.sort().reverse();
+  main.innerHTML = `
+    <div class="field"><label>年月で絞り込み</label>
+      <select class="pill" data-change="allYm">
+        <option value="all"${state.allYm === 'all' ? ' selected' : ''}>すべての月</option>
+        ${months.map((ym) => `<option value="${ym}"${state.allYm === ym ? ' selected' : ''}>${ymLabel(ym)}</option>`).join('')}
+      </select></div>
+    <div style="height:10px"></div>
+    <input class="search" type="search" placeholder="🔍 お名前で検索" value="${esc(state.allQuery)}" data-input="allQuery">
+    <div class="chips">${ALL_FILTERS.map(([k, l]) => `<button class="chip${state.allFilter === k ? ' active' : ''}" data-action="all-filter" data-key="${k}">${l}</button>`).join('')}</div>
+    <div id="results"></div>`;
+  renderAllResults();
+}
+
+function matchAllFilter(row) {
+  const { customer: c, record: r } = row;
+  switch (state.allFilter) {
+    case 'pending': return r.status === '未対応';
+    case 'unpaid': return r.payment === '未入金';
+    case 'noslip': return c.delivery === '直送' && r.slip === '未送付';
+    default: return true;
+  }
+}
+
+function renderAllResults() {
+  const base = state.allYm === 'all'
+    ? allRows(db)
+    : shipList(db, state.allYm).map((it) => Object.assign({ ym: state.allYm }, it));
+  const q = state.allQuery.trim();
+  const rows = base.filter((row) => (!q || row.customer.name.includes(q)) && matchAllFilter(row));
+
+  const pending = rows.filter((r) => r.record.status === '未対応').length;
+  const unpaid = rows.filter((r) => r.record.payment === '未入金').length;
+  let html = `<div class="summary">
+      <div><b>${rows.length}</b>件</div>
+      <div><b>${pending}</b>未発送</div>
+      <div><b>${unpaid}</b>未入金</div>
+    </div>`;
+  if (!rows.length) {
+    $('#results').innerHTML = html + '<div class="empty">該当する記録はありません。</div>';
+    return;
+  }
+
+  // 月ごとにまとめて、月の見出しを大きく出す
+  const groups = [];
+  rows.forEach((row) => {
+    if (!groups.length || groups[groups.length - 1].ym !== row.ym) groups.push({ ym: row.ym, rows: [] });
+    groups[groups.length - 1].rows.push(row);
+  });
+  html += groups.map((g) => {
+    const sum = { ザクロ: 0, ゆず: 0 };
+    g.rows.forEach((row) => FLAVORS.forEach((f) => { sum[f] += row.record.qty[f] || 0; }));
+    return `
+    <h3 class="ym-head">${ymLabel(g.ym)}<span>${g.rows.length}件　ザクロ${sum.ザクロ}・ゆず${sum.ゆず}</span></h3>
+    <div class="table-wrap"><table class="rec-table">
+      <thead><tr><th class="sticky ym">年月</th><th class="sticky name">お名前</th><th>区分</th><th>ザクロ</th><th>ゆず</th><th>発送</th><th>伝票</th><th>入金</th></tr></thead>
+      <tbody>${g.rows.map(recRow).join('')}</tbody>
+    </table></div>`;
+  }).join('');
+  html += '<p class="small muted">※ 行を押すと、その月の記録を編集できます。表は横にスクロールできます。</p>';
+  $('#results').innerHTML = html;
+}
+
+function recRow({ ym, customer: c, record: r }) {
+  const [y, m] = ym.split('-');
+  const statusCls = isDone(r.status) ? 'ok' : 'warn';
+  const slip = c.delivery === '手渡し' ? '<span class="muted">手渡し</span>'
+    : `<span class="badge ${r.slip === '送付済み' ? 'ok' : 'warn'}">${esc(r.slip)}</span>`;
+  return `<tr data-action="edit-record" data-id="${c.id}" data-ym="${ym}">
+    <td class="sticky ym">${y}年<br>${Number(m)}月</td>
+    <td class="sticky name">${esc(c.name) || '(名前なし)'}</td>
+    <td class="nowrap">${esc(c.plan)}</td>
+    <td class="num">${r.qty.ザクロ || '<span class="muted">0</span>'}</td>
+    <td class="num">${r.qty.ゆず || '<span class="muted">0</span>'}</td>
+    <td><span class="badge ${statusCls}">${esc(r.status)}</span></td>
+    <td>${slip}</td>
+    <td><span class="badge ${r.payment === '入金済み' ? 'ok' : 'warn'}">${esc(r.payment)}</span></td>
+  </tr>`;
 }
 
 // ---------- 顧客 ----------
@@ -250,7 +375,8 @@ function renderCustomers() {
 
 function renderCustomerResults() {
   const q = state.custQuery.trim();
-  const ym = ymOf();
+  const ym = state.ym; // 上部に表示している月を基準にする
+  const mon = Number(ym.split('-')[1]) + '月';
   const list = db.customers
     .filter((c) => (!q || c.name.includes(q)) && (state.showPaused || !c.paused))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
@@ -260,13 +386,13 @@ function renderCustomerResults() {
     return;
   }
   $('#results').innerHTML = list.map((c) => {
-    const badges = [flavorBadge(c.flavor, c.qty), `<span class="badge">${esc(c.plan)}</span>`, `<span class="badge ${c.delivery === '手渡し' ? 'warn' : ''}">${esc(c.delivery)}</span>`];
+    const badges = [qtyBadges(c.qty), `<span class="badge">${esc(c.plan)}</span>`, `<span class="badge ${c.delivery === '手渡し' ? 'warn' : ''}">${esc(c.delivery)}</span>`];
     if (c.paused) badges.push('<span class="badge">休止中</span>');
     if (c.plan === '隔月' && !c.paused) {
-      if (isScheduledMonth(c, ym)) badges.push('<span class="badge ok">✅ 今月発送月</span>');
+      if (isScheduledMonth(c, ym)) badges.push(`<span class="badge ok">✅ ${mon}は発送月</span>`);
       else {
         const nx = nextScheduledMonth(c, ym);
-        badges.push(`<span class="badge">💤 今月はお休み${nx ? '（次は' + Number(nx.split('-')[1]) + '月）' : ''}</span>`);
+        badges.push(`<span class="badge">💤 ${mon}はお休み${nx ? '（次は' + Number(nx.split('-')[1]) + '月）' : ''}</span>`);
       }
     }
     return `<div class="card cust" data-action="edit-customer" data-id="${c.id}">
@@ -284,10 +410,8 @@ function openCustomerSheet(cid) {
     <h2>${isNew ? '新しい顧客を登録' : '顧客情報の編集'}</h2>
     <form class="form" id="custForm">
       <div class="field"><label>顧客名</label><input type="text" name="name" required value="${esc(c.name)}" placeholder="例：山田 花子"></div>
-      <div class="row2">
-        <div class="field"><label>味</label><select name="flavor">${options(FLAVORS, c.flavor)}</select></div>
-        <div class="field"><label>個数</label><input type="number" name="qty" min="0" inputmode="numeric" value="${esc(c.qty)}"></div>
-      </div>
+      ${qtyFields(c.qty, '')}
+      <div class="field"><div class="hint">両方の味を頼む人は、それぞれの個数を入れてください。片方だけの人は、もう片方を0にします。</div></div>
       <div class="row2">
         <div class="field"><label>定期便の種類</label><select name="plan" id="planSel">${options(PLANS, c.plan)}</select></div>
         <div class="field"><label>開始月</label><input type="month" name="startMonth" value="${esc(c.startMonth)}"></div>
@@ -321,8 +445,8 @@ function openCustomerSheet(cid) {
         if (isScheduledMonth(tmp, t)) months.push(Number(t.split('-')[1]) + '月');
       }
       hint.textContent = '隔月の発送月：' + months.join('・') + ' …（開始月から2か月ごと）';
-    } else if (plan === 'イレギュラー') {
-      hint.textContent = 'イレギュラーの人は、発送リストの「＋ イレギュラーの人を追加」から月ごとに追加します。';
+    } else if (plan === '単発') {
+      hint.textContent = '単発の人は、発送リストの「＋ 単発の人を追加」から注文があった月に追加します。';
     } else hint.textContent = '開始月から毎月の発送リストに表示されます。';
   };
   form.plan.addEventListener('change', updateHint);
@@ -334,8 +458,7 @@ function openCustomerSheet(cid) {
     const f = new FormData(form);
     const data = {
       name: (f.get('name') || '').trim(),
-      flavor: f.get('flavor'),
-      qty: Math.max(0, Number(f.get('qty')) || 0),
+      qty: readQty(f),
       plan: f.get('plan'),
       startMonth: isValidYm(f.get('startMonth')) ? f.get('startMonth') : ymOf(),
       delivery: f.get('delivery'),
@@ -346,6 +469,7 @@ function openCustomerSheet(cid) {
       memo: f.get('memo') || '',
     };
     if (!data.name) { toast('顧客名を入力してください'); return; }
+    if (!totalQty(data.qty) && !confirm('ザクロ・ゆずの個数がどちらも0個です。このまま保存しますか？')) return;
     if (isNew) db.customers.push(Object.assign(c, data));
     else Object.assign(findCustomer(db, cid), data);
     persist();
@@ -391,7 +515,7 @@ function renderStock() {
         <span>＋ 入荷</span><span class="val">${x.arrived}個</span>
         <span>− 発送・手渡し済み</span><span class="val">${x.shipped}個</span>
         <span class="total">月末の残り</span><span class="val total">${x.remaining}個</span>
-        <span class="muted small">今月の発送予定（合計）</span><span class="val small">${x.planned}個</span>
+        <span class="muted small">この月の発送予定（合計）</span><span class="val small">${x.planned}個</span>
         <span class="muted small">うち未対応</span><span class="val small">${x.pending}個</span>
         <span class="muted small">未対応分を出した後の残り</span>
         <span class="val small" style="color:${x.afterPlan < 0 ? 'var(--danger)' : 'inherit'}">${x.afterPlan}個</span>
@@ -594,7 +718,8 @@ document.addEventListener('click', (e) => {
   const id = el.dataset.id;
   switch (el.dataset.action) {
     case 'filter': state.filter = el.dataset.key; render(); break;
-    case 'edit-record': openRecordSheet(id); break;
+    case 'edit-record': openRecordSheet(id, el.dataset.ym); break;
+    case 'all-filter': state.allFilter = el.dataset.key; render(); break;
     case 'add-irregular': openAddIrregular(); break;
     case 'pick-irregular': {
       const c = findCustomer(db, id);
@@ -607,7 +732,7 @@ document.addEventListener('click', (e) => {
     }
     case 'remove-irregular':
       if (confirm('この月の発送リストから外しますか？（この月の記録も消えます）')) {
-        delete (db.records[state.ym] || {})[id];
+        delete (db.records[el.dataset.ym || state.ym] || {})[id];
         persist();
         closeSheet();
         render();
@@ -646,6 +771,9 @@ document.addEventListener('change', (e) => {
     updateRecordField(el.dataset.id, el.dataset.field, el.value);
     toast(`${el.value} にしました`);
     render();
+  } else if (el.dataset.change === 'allYm') {
+    state.allYm = el.value;
+    render();
   } else if (el.dataset.change === 'opening') {
     const v = el.value === '' ? null : Math.max(0, Number(el.value) || 0);
     ensureInventory(db, state.ym).opening[el.dataset.flavor] = v;
@@ -659,13 +787,24 @@ document.addEventListener('input', (e) => {
   if (!key) return;
   state[key] = e.target.value;
   if (key === 'query') renderListResults();
+  else if (key === 'allQuery') renderAllResults();
   else renderCustomerResults();
 });
 
 $('#sheetBackdrop').addEventListener('click', closeSheet);
-$('#prevMonth').addEventListener('click', () => { state.ym = addMonths(state.ym, -1); render(); });
-$('#nextMonth').addEventListener('click', () => { state.ym = addMonths(state.ym, 1); render(); });
-$('#monthLabel').addEventListener('click', () => { state.ym = ymOf(); render(); });
+// 上部の ◀ ▶ と年月（一覧画面では年月の絞り込みとして働く）
+function moveMonth(n) {
+  if (state.tab === 'all') state.allYm = state.allYm === 'all' ? ymOf() : addMonths(state.allYm, n);
+  else state.ym = addMonths(state.ym, n);
+  render();
+}
+$('#prevMonth').addEventListener('click', () => moveMonth(-1));
+$('#nextMonth').addEventListener('click', () => moveMonth(1));
+$('#monthLabel').addEventListener('click', () => {
+  if (state.tab === 'all') state.allYm = 'all';
+  else state.ym = ymOf();
+  render();
+});
 
 // 別のタブ・ウィンドウでデータが変わったら読み直す
 window.addEventListener('storage', (e) => { if (e.key === STORAGE_KEY) { db = loadDb(); render(); } });

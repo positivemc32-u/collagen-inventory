@@ -5,10 +5,13 @@
 // =============================================================
 
 const STORAGE_KEY = 'collagen-app-v1';
+const PRE_V2_BACKUP_KEY = 'collagen-app-v1-backup-before-v2'; // 形式変更前のデータの控え
+const DATA_VERSION = 2;
 const BACKUP_REMIND_DAYS = 14; // この日数バックアップしていないとお知らせ
+const MAX_LIST_MONTHS = 36; // 一覧に並べる最大の月数
 
 const FLAVORS = ['ザクロ', 'ゆず'];
-const PLANS = ['毎月', '隔月', 'イレギュラー'];
+const PLANS = ['毎月', '隔月', '単発'];
 const DELIVERIES = ['直送', '手渡し'];
 const TIME_SLOTS = ['指定なし', '午前中', '14〜16時', '16〜18時', '18〜20時', '19〜21時'];
 const STATUSES = ['未対応', '発送済み', '手渡し済み'];
@@ -41,9 +44,54 @@ function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+// ---------- 個数（味ごと） ----------
+function emptyQty() {
+  return { ザクロ: 0, ゆず: 0 };
+}
+function toCount(v) {
+  return Math.max(0, Math.floor(Number(v)) || 0);
+}
+// どんな形の個数でも { ザクロ: n, ゆず: m } にそろえる
+// 旧形式（flavor: 'ゆず', qty: 2）にも対応
+function normalizeQty(obj) {
+  const q = emptyQty();
+  if (obj.qty && typeof obj.qty === 'object') {
+    FLAVORS.forEach((f) => { q[f] = toCount(obj.qty[f]); });
+  } else if (FLAVORS.includes(obj.flavor)) {
+    q[obj.flavor] = toCount(obj.qty);
+  }
+  return q;
+}
+function totalQty(q) {
+  return FLAVORS.reduce((s, f) => s + (q[f] || 0), 0);
+}
+
 // ---------- 保存と読み込み ----------
 function emptyDb() {
-  return { customers: [], records: {}, inventory: {}, meta: { version: 1, lastBackupAt: null } };
+  return { customers: [], records: {}, inventory: {}, meta: { version: DATA_VERSION, lastBackupAt: null } };
+}
+
+// 古い形式のデータを新しい形式に直す（データは消さない）
+function migrateDb(db) {
+  db.customers = (db.customers || []).map((c) => {
+    const out = Object.assign({}, c, { qty: normalizeQty(c) });
+    delete out.flavor;
+    if (out.plan === 'イレギュラー') out.plan = '単発';
+    return out;
+  });
+  const records = db.records || {};
+  Object.keys(records).forEach((ym) => {
+    Object.keys(records[ym] || {}).forEach((cid) => {
+      const r = Object.assign({}, records[ym][cid]);
+      r.qty = normalizeQty(r);
+      delete r.flavor;
+      records[ym][cid] = r;
+    });
+  });
+  db.records = records;
+  db.inventory = db.inventory || {};
+  db.meta = Object.assign({ lastBackupAt: null }, db.meta || {}, { version: DATA_VERSION });
+  return db;
 }
 
 function loadDb() {
@@ -51,13 +99,15 @@ function loadDb() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyDb();
     const db = JSON.parse(raw);
-    const base = emptyDb();
-    return {
-      customers: Array.isArray(db.customers) ? db.customers : [],
-      records: db.records || {},
-      inventory: db.inventory || {},
-      meta: Object.assign(base.meta, db.meta || {}),
-    };
+    const oldVersion = (db.meta && db.meta.version) || 1;
+    if (oldVersion < DATA_VERSION) {
+      // 念のため、形式を変える前のデータをそのまま控えておく
+      if (!localStorage.getItem(PRE_V2_BACKUP_KEY)) localStorage.setItem(PRE_V2_BACKUP_KEY, raw);
+      migrateDb(db);
+      saveDb(db);
+      return db;
+    }
+    return migrateDb(db);
   } catch (e) {
     console.error(e);
     return emptyDb();
@@ -73,8 +123,7 @@ function newCustomer() {
   return {
     id: newId(),
     name: '',
-    flavor: 'ザクロ',
-    qty: 1,
+    qty: { ザクロ: 1, ゆず: 0 },
     plan: '毎月',
     startMonth: ymOf(),
     delivery: '直送',
@@ -98,7 +147,7 @@ function isScheduledMonth(c, ym) {
   if (diff < 0) return false;
   if (c.plan === '毎月') return true;
   if (c.plan === '隔月') return diff % 2 === 0;
-  return false; // イレギュラーは手動で追加
+  return false; // 単発は手動で追加
 }
 
 // 隔月の人の次の発送月（ym を含む）
@@ -122,8 +171,7 @@ function makeRecord(c, irregular) {
     tracking: '',
     payment: '未入金',
     memo: '',
-    flavor: c.flavor,
-    qty: Number(c.qty) || 0,
+    qty: normalizeQty(c), // 記録時点の個数（あとで顧客情報を変えても過去の記録は変わらない）
     irregular: !!irregular,
   };
 }
@@ -133,7 +181,7 @@ function ensureRecord(db, ym, cid, irregular) {
   if (!db.records[ym]) db.records[ym] = {};
   if (!db.records[ym][cid]) {
     const c = findCustomer(db, cid);
-    db.records[ym][cid] = makeRecord(c || { flavor: 'ザクロ', qty: 0 }, irregular);
+    db.records[ym][cid] = makeRecord(c || { qty: emptyQty() }, irregular);
   }
   return db.records[ym][cid];
 }
@@ -159,6 +207,32 @@ function shipList(db, ym) {
   return list;
 }
 
+// 一覧画面用：記録のある月・今月までの全員分（新しい月が先）
+function listMonths(db) {
+  const now = ymOf();
+  let first = now;
+  let last = now;
+  db.customers.forEach((c) => {
+    if (isValidYm(c.startMonth) && c.startMonth < first) first = c.startMonth;
+  });
+  Object.keys(db.records).forEach((ym) => {
+    if (!isValidYm(ym) || !Object.keys(db.records[ym] || {}).length) return;
+    if (ym < first) first = ym;
+    if (ym > last) last = ym;
+  });
+  const months = [];
+  for (let ym = last; ym >= first && months.length < MAX_LIST_MONTHS; ym = addMonths(ym, -1)) months.push(ym);
+  return months;
+}
+
+function allRows(db) {
+  const rows = [];
+  listMonths(db).forEach((ym) => {
+    shipList(db, ym).forEach((it) => rows.push({ ym, customer: it.customer, record: it.record, saved: it.saved }));
+  });
+  return rows;
+}
+
 // ---------- 在庫 ----------
 function getInventory(db, ym) {
   return db.inventory[ym] || { opening: { ザクロ: null, ゆず: null }, arrivals: [] };
@@ -182,8 +256,7 @@ function calcStock(db, ym) {
     const arrived = (inv.arrivals || []).filter((a) => a.flavor === f).reduce((s, a) => s + (Number(a.qty) || 0), 0);
     let shipped = 0, pending = 0, planned = 0;
     list.forEach(({ record }) => {
-      if (record.flavor !== f) return;
-      const q = Number(record.qty) || 0;
+      const q = (record.qty && record.qty[f]) || 0;
       planned += q;
       if (isDone(record.status)) shipped += q; else pending += q;
     });
@@ -230,9 +303,10 @@ function needsBackupReminder(db) {
 
 // ---------- CSV ----------
 // 1つのCSVファイルに「種別」列で4種類のデータをまとめます。
+// 顧客・発送記録の個数は「ザクロ個数」「ゆず個数」列、在庫・入荷は「味」「個数」列を使います。
 const CSV_COLUMNS = [
-  '種別', 'ID', '月', '顧客名', '味', '個数', '定期便', '開始月', '受け渡し', '時間指定',
-  '休止中', '住所', '電話番号', 'メモ', '状況', '伝票', '伝票番号', '入金', 'イレギュラー追加', '日付', '登録日時',
+  '種別', 'ID', '月', '顧客名', 'ザクロ個数', 'ゆず個数', '味', '個数', '定期便', '開始月', '受け渡し', '時間指定',
+  '休止中', '住所', '電話番号', 'メモ', '状況', '伝票', '伝票番号', '入金', '単発追加', '日付', '登録日時',
 ];
 
 function csvEscape(v) {
@@ -245,7 +319,7 @@ function toCsv(db) {
   const row = (obj) => CSV_COLUMNS.map((k) => (obj[k] == null ? '' : obj[k]));
 
   db.customers.forEach((c) => rows.push(row({
-    '種別': '顧客', 'ID': c.id, '顧客名': c.name, '味': c.flavor, '個数': c.qty, '定期便': c.plan,
+    '種別': '顧客', 'ID': c.id, '顧客名': c.name, 'ザクロ個数': c.qty.ザクロ, 'ゆず個数': c.qty.ゆず, '定期便': c.plan,
     '開始月': c.startMonth, '受け渡し': c.delivery, '時間指定': c.timeSlot, '休止中': c.paused ? 'はい' : 'いいえ',
     '住所': c.address, '電話番号': c.phone, 'メモ': c.memo, '登録日時': c.createdAt,
   })));
@@ -255,9 +329,9 @@ function toCsv(db) {
       const r = db.records[ym][cid];
       const c = findCustomer(db, cid);
       rows.push(row({
-        '種別': '発送記録', 'ID': cid, '月': ym, '顧客名': c ? c.name : '', '味': r.flavor, '個数': r.qty,
+        '種別': '発送記録', 'ID': cid, '月': ym, '顧客名': c ? c.name : '', 'ザクロ個数': r.qty.ザクロ, 'ゆず個数': r.qty.ゆず,
         'メモ': r.memo, '状況': r.status, '伝票': r.slip, '伝票番号': r.tracking, '入金': r.payment,
-        'イレギュラー追加': r.irregular ? 'はい' : 'いいえ',
+        '単発追加': r.irregular ? 'はい' : 'いいえ',
       }));
     });
   });
@@ -304,6 +378,14 @@ function pick(list, value, fallback) {
   return list.includes(value) ? value : fallback;
 }
 
+// CSVの1行から個数を読む（新形式：ザクロ個数・ゆず個数／旧形式：味＋個数）
+function qtyFromCsv(o) {
+  if (o['ザクロ個数'] !== undefined || o['ゆず個数'] !== undefined) {
+    return { ザクロ: toCount(o['ザクロ個数']), ゆず: toCount(o['ゆず個数']) };
+  }
+  return normalizeQty({ flavor: o['味'], qty: o['個数'] });
+}
+
 // CSV → データ（形式がおかしいときはエラーを投げる）
 function fromCsv(text) {
   const rows = parseCsvRows(text);
@@ -322,9 +404,8 @@ function fromCsv(text) {
         db.customers.push({
           id: o['ID'] || newId(),
           name: o['顧客名'],
-          flavor: pick(FLAVORS, o['味'], 'ザクロ'),
-          qty: num(o['個数']) || 0,
-          plan: pick(PLANS, o['定期便'], '毎月'),
+          qty: qtyFromCsv(o),
+          plan: pick(PLANS, o['定期便'] === 'イレギュラー' ? '単発' : o['定期便'], '毎月'),
           startMonth: isValidYm(o['開始月']) ? o['開始月'] : ymOf(),
           delivery: pick(DELIVERIES, o['受け渡し'], '直送'),
           timeSlot: pick(TIME_SLOTS, o['時間指定'], '指定なし'),
@@ -344,9 +425,8 @@ function fromCsv(text) {
           tracking: o['伝票番号'],
           payment: pick(PAYMENTS, o['入金'], '未入金'),
           memo: o['メモ'],
-          flavor: pick(FLAVORS, o['味'], 'ザクロ'),
-          qty: num(o['個数']) || 0,
-          irregular: o['イレギュラー追加'] === 'はい',
+          qty: qtyFromCsv(o),
+          irregular: (o['単発追加'] || o['イレギュラー追加']) === 'はい',
         };
         break;
       case '月初在庫':
@@ -376,5 +456,6 @@ if (typeof module !== 'undefined') {
   module.exports = {
     FLAVORS, ymOf, addMonths, monthDiff, isScheduledMonth, shipList, calcStock, ensureRecord,
     ensureInventory, toCsv, fromCsv, emptyDb, newCustomer, previousEnding, needsBackupReminder,
+    migrateDb, listMonths, allRows, normalizeQty,
   };
 }
