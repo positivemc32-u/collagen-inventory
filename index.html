@@ -17,10 +17,13 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="pageTitle">発送リスト</h1>
+    <div class="topbar-row">
+      <h1 id="pageTitle">発送リスト</h1>
+      <span class="month-hint" id="monthHint"></span>
+    </div>
     <div class="month-switch" id="monthSwitch">
       <button type="button" class="icon-btn" id="prevMonth" aria-label="前の月">◀</button>
-      <button type="button" class="month-label" id="monthLabel" aria-label="今月に戻る"></button>
+      <button type="button" class="month-label" id="monthLabel" aria-label="表示中の年月"></button>
       <button type="button" class="icon-btn" id="nextMonth" aria-label="次の月">▶</button>
     </div>
   </header>
@@ -31,6 +34,7 @@
 
   <nav class="tabbar" id="tabbar">
     <button type="button" data-tab="list" class="active"><span class="ico">📦</span><span>発送リスト</span></button>
+    <button type="button" data-tab="all"><span class="ico">📋</span><span>一覧</span></button>
     <button type="button" data-tab="customers"><span class="ico">👤</span><span>顧客</span></button>
     <button type="button" data-tab="stock"><span class="ico">📊</span><span>在庫</span></button>
     <button type="button" data-tab="backup"><span class="ico">💾</span><span>バックアップ</span></button>
