@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#c2185b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="コラーゲン管理">
+  <meta name="robots" content="noindex, nofollow">
+  <title>コラーゲン管理</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="pageTitle">発送リスト</h1>
+    <div class="month-switch" id="monthSwitch">
+      <button type="button" class="icon-btn" id="prevMonth" aria-label="前の月">◀</button>
+      <button type="button" class="month-label" id="monthLabel" aria-label="今月に戻る"></button>
+      <button type="button" class="icon-btn" id="nextMonth" aria-label="次の月">▶</button>
+    </div>
+  </header>
+
+  <div id="notices"></div>
+
+  <main id="main"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <button type="button" data-tab="list" class="active"><span class="ico">📦</span><span>発送リスト</span></button>
+    <button type="button" data-tab="customers"><span class="ico">👤</span><span>顧客</span></button>
+    <button type="button" data-tab="stock"><span class="ico">📊</span><span>在庫</span></button>
+    <button type="button" data-tab="backup"><span class="ico">💾</span><span>バックアップ</span></button>
+  </nav>
+
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+  <section class="sheet" id="sheet" hidden role="dialog" aria-modal="true">
+    <div class="sheet-handle"></div>
+    <div id="sheetBody"></div>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
