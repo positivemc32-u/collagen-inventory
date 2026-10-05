@@ -1,0 +1,380 @@
+// =============================================================
+// data.js … データの形・保存・計算・CSV をまとめたファイル
+// データはこの端末のブラウザ（localStorage）にだけ保存されます。
+// GitHub には一切送信・保存されません。
+// =============================================================
+
+const STORAGE_KEY = 'collagen-app-v1';
+const BACKUP_REMIND_DAYS = 14; // この日数バックアップしていないとお知らせ
+
+const FLAVORS = ['ザクロ', 'ゆず'];
+const PLANS = ['毎月', '隔月', 'イレギュラー'];
+const DELIVERIES = ['直送', '手渡し'];
+const TIME_SLOTS = ['指定なし', '午前中', '14〜16時', '16〜18時', '18〜20時', '19〜21時'];
+const STATUSES = ['未対応', '発送済み', '手渡し済み'];
+const SLIPS = ['未送付', '送付済み'];
+const PAYMENTS = ['未入金', '入金済み'];
+
+// ---------- 月の計算 ----------
+function ymOf(date) {
+  const d = date || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function addMonths(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  return ymOf(new Date(y, m - 1 + n, 1));
+}
+function monthDiff(fromYm, toYm) {
+  const [y1, m1] = fromYm.split('-').map(Number);
+  const [y2, m2] = toYm.split('-').map(Number);
+  return (y2 - y1) * 12 + (m2 - m1);
+}
+function ymLabel(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return y + '年' + m + '月';
+}
+function isValidYm(s) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(s || '');
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ---------- 保存と読み込み ----------
+function emptyDb() {
+  return { customers: [], records: {}, inventory: {}, meta: { version: 1, lastBackupAt: null } };
+}
+
+function loadDb() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return emptyDb();
+    const db = JSON.parse(raw);
+    const base = emptyDb();
+    return {
+      customers: Array.isArray(db.customers) ? db.customers : [],
+      records: db.records || {},
+      inventory: db.inventory || {},
+      meta: Object.assign(base.meta, db.meta || {}),
+    };
+  } catch (e) {
+    console.error(e);
+    return emptyDb();
+  }
+}
+
+function saveDb(db) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+// ---------- 顧客 ----------
+function newCustomer() {
+  return {
+    id: newId(),
+    name: '',
+    flavor: 'ザクロ',
+    qty: 1,
+    plan: '毎月',
+    startMonth: ymOf(),
+    delivery: '直送',
+    timeSlot: '指定なし',
+    paused: false,
+    address: '',
+    phone: '',
+    memo: '',
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function findCustomer(db, id) {
+  return db.customers.find((c) => c.id === id);
+}
+
+// 隔月・毎月の「予定上の」発送月かどうか（休止は考えない）
+function isScheduledMonth(c, ym) {
+  if (!isValidYm(c.startMonth)) return c.plan === '毎月';
+  const diff = monthDiff(c.startMonth, ym);
+  if (diff < 0) return false;
+  if (c.plan === '毎月') return true;
+  if (c.plan === '隔月') return diff % 2 === 0;
+  return false; // イレギュラーは手動で追加
+}
+
+// 隔月の人の次の発送月（ym を含む）
+function nextScheduledMonth(c, ym) {
+  for (let i = 0; i < 24; i++) {
+    const t = addMonths(ym, i);
+    if (isScheduledMonth(c, t)) return t;
+  }
+  return null;
+}
+
+// ---------- 月ごとの発送記録 ----------
+function getRecord(db, ym, cid) {
+  return (db.records[ym] || {})[cid] || null;
+}
+
+function makeRecord(c, irregular) {
+  return {
+    status: '未対応',
+    slip: '未送付',
+    tracking: '',
+    payment: '未入金',
+    memo: '',
+    flavor: c.flavor,
+    qty: Number(c.qty) || 0,
+    irregular: !!irregular,
+  };
+}
+
+// 記録を取得（無ければ作って保存用に返す）
+function ensureRecord(db, ym, cid, irregular) {
+  if (!db.records[ym]) db.records[ym] = {};
+  if (!db.records[ym][cid]) {
+    const c = findCustomer(db, cid);
+    db.records[ym][cid] = makeRecord(c || { flavor: 'ザクロ', qty: 0 }, irregular);
+  }
+  return db.records[ym][cid];
+}
+
+// その月の発送リスト（記録が未作成の人は顧客情報から仮表示）
+function shipList(db, ym) {
+  const recs = db.records[ym] || {};
+  const list = [];
+  db.customers.forEach((c) => {
+    const rec = recs[c.id] || null;
+    const scheduled = !c.paused && isScheduledMonth(c, ym);
+    // 休止中でも、その月に既に記録（発送済みなど）がある人は残す
+    const keepByRecord = rec && (rec.irregular || rec.status !== '未対応' || !c.paused);
+    if (scheduled || keepByRecord) {
+      list.push({
+        customer: c,
+        record: rec || makeRecord(c, false),
+        saved: !!rec,
+      });
+    }
+  });
+  list.sort((a, b) => a.customer.name.localeCompare(b.customer.name, 'ja'));
+  return list;
+}
+
+// ---------- 在庫 ----------
+function getInventory(db, ym) {
+  return db.inventory[ym] || { opening: { ザクロ: null, ゆず: null }, arrivals: [] };
+}
+function ensureInventory(db, ym) {
+  if (!db.inventory[ym]) db.inventory[ym] = { opening: { ザクロ: null, ゆず: null }, arrivals: [] };
+  return db.inventory[ym];
+}
+
+function isDone(status) {
+  return status === '発送済み' || status === '手渡し済み';
+}
+
+// 味ごとの在庫計算
+function calcStock(db, ym) {
+  const inv = getInventory(db, ym);
+  const list = shipList(db, ym);
+  const result = {};
+  FLAVORS.forEach((f) => {
+    const opening = inv.opening && inv.opening[f] != null && inv.opening[f] !== '' ? Number(inv.opening[f]) : null;
+    const arrived = (inv.arrivals || []).filter((a) => a.flavor === f).reduce((s, a) => s + (Number(a.qty) || 0), 0);
+    let shipped = 0, pending = 0, planned = 0;
+    list.forEach(({ record }) => {
+      if (record.flavor !== f) return;
+      const q = Number(record.qty) || 0;
+      planned += q;
+      if (isDone(record.status)) shipped += q; else pending += q;
+    });
+    const remaining = (opening || 0) + arrived - shipped;
+    result[f] = {
+      opening,
+      arrived,
+      shipped,
+      pending,
+      planned,
+      remaining,
+      afterPlan: remaining - pending,
+      shortage: pending > remaining ? pending - remaining : 0,
+    };
+  });
+  return result;
+}
+
+// 前月の月末残り（前月の月初在庫が入力されている場合のみ）
+function previousEnding(db, ym) {
+  const prev = addMonths(ym, -1);
+  const inv = db.inventory[prev];
+  if (!inv) return null;
+  const s = calcStock(db, prev);
+  const out = {};
+  let any = false;
+  FLAVORS.forEach((f) => {
+    if (s[f].opening != null) { out[f] = s[f].remaining; any = true; } else out[f] = null;
+  });
+  return any ? out : null;
+}
+
+// ---------- バックアップのお知らせ ----------
+function backupDaysAgo(db) {
+  if (!db.meta.lastBackupAt) return null;
+  return Math.floor((Date.now() - new Date(db.meta.lastBackupAt).getTime()) / 86400000);
+}
+function needsBackupReminder(db) {
+  const hasData = db.customers.length > 0;
+  if (!hasData) return false;
+  const d = backupDaysAgo(db);
+  return d === null || d >= BACKUP_REMIND_DAYS;
+}
+
+// ---------- CSV ----------
+// 1つのCSVファイルに「種別」列で4種類のデータをまとめます。
+const CSV_COLUMNS = [
+  '種別', 'ID', '月', '顧客名', '味', '個数', '定期便', '開始月', '受け渡し', '時間指定',
+  '休止中', '住所', '電話番号', 'メモ', '状況', '伝票', '伝票番号', '入金', 'イレギュラー追加', '日付', '登録日時',
+];
+
+function csvEscape(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function toCsv(db) {
+  const rows = [CSV_COLUMNS];
+  const row = (obj) => CSV_COLUMNS.map((k) => (obj[k] == null ? '' : obj[k]));
+
+  db.customers.forEach((c) => rows.push(row({
+    '種別': '顧客', 'ID': c.id, '顧客名': c.name, '味': c.flavor, '個数': c.qty, '定期便': c.plan,
+    '開始月': c.startMonth, '受け渡し': c.delivery, '時間指定': c.timeSlot, '休止中': c.paused ? 'はい' : 'いいえ',
+    '住所': c.address, '電話番号': c.phone, 'メモ': c.memo, '登録日時': c.createdAt,
+  })));
+
+  Object.keys(db.records).sort().forEach((ym) => {
+    Object.keys(db.records[ym]).forEach((cid) => {
+      const r = db.records[ym][cid];
+      const c = findCustomer(db, cid);
+      rows.push(row({
+        '種別': '発送記録', 'ID': cid, '月': ym, '顧客名': c ? c.name : '', '味': r.flavor, '個数': r.qty,
+        'メモ': r.memo, '状況': r.status, '伝票': r.slip, '伝票番号': r.tracking, '入金': r.payment,
+        'イレギュラー追加': r.irregular ? 'はい' : 'いいえ',
+      }));
+    });
+  });
+
+  Object.keys(db.inventory).sort().forEach((ym) => {
+    const inv = db.inventory[ym];
+    FLAVORS.forEach((f) => {
+      const v = inv.opening ? inv.opening[f] : null;
+      if (v != null && v !== '') rows.push(row({ '種別': '月初在庫', '月': ym, '味': f, '個数': v }));
+    });
+    (inv.arrivals || []).forEach((a) => rows.push(row({
+      '種別': '入荷', 'ID': a.id, '月': ym, '日付': a.date, '味': a.flavor, '個数': a.qty, 'メモ': a.memo,
+    })));
+  });
+
+  if (db.meta.lastBackupAt) rows.push(row({ '種別': '設定', 'メモ': 'lastBackupAt', '日付': db.meta.lastBackupAt }));
+
+  return '﻿' + rows.map((r) => r.map(csvEscape).join(',')).join('\r\n') + '\r\n';
+}
+
+// CSV文字列 → 2次元配列（"..." 内のカンマ・改行にも対応）
+function parseCsvRows(text) {
+  text = text.replace(/^﻿/, '');
+  const rows = [];
+  let row = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false;
+      } else field += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += ch;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((v) => v !== ''));
+}
+
+function pick(list, value, fallback) {
+  return list.includes(value) ? value : fallback;
+}
+
+// CSV → データ（形式がおかしいときはエラーを投げる）
+function fromCsv(text) {
+  const rows = parseCsvRows(text);
+  if (!rows.length) throw new Error('CSVが空です');
+  const header = rows[0].map((h) => h.trim());
+  if (header[0] !== '種別' || !header.includes('ID')) {
+    throw new Error('このアプリで書き出したCSVではないようです');
+  }
+  const db = emptyDb();
+  const num = (v) => (v === '' || v == null ? null : Number(v));
+  rows.slice(1).forEach((cells) => {
+    const o = {};
+    header.forEach((h, i) => { o[h] = cells[i] == null ? '' : cells[i]; });
+    switch (o['種別']) {
+      case '顧客':
+        db.customers.push({
+          id: o['ID'] || newId(),
+          name: o['顧客名'],
+          flavor: pick(FLAVORS, o['味'], 'ザクロ'),
+          qty: num(o['個数']) || 0,
+          plan: pick(PLANS, o['定期便'], '毎月'),
+          startMonth: isValidYm(o['開始月']) ? o['開始月'] : ymOf(),
+          delivery: pick(DELIVERIES, o['受け渡し'], '直送'),
+          timeSlot: pick(TIME_SLOTS, o['時間指定'], '指定なし'),
+          paused: o['休止中'] === 'はい',
+          address: o['住所'],
+          phone: o['電話番号'],
+          memo: o['メモ'],
+          createdAt: o['登録日時'] || new Date().toISOString(),
+        });
+        break;
+      case '発送記録':
+        if (!isValidYm(o['月']) || !o['ID']) break;
+        if (!db.records[o['月']]) db.records[o['月']] = {};
+        db.records[o['月']][o['ID']] = {
+          status: pick(STATUSES, o['状況'], '未対応'),
+          slip: pick(SLIPS, o['伝票'], '未送付'),
+          tracking: o['伝票番号'],
+          payment: pick(PAYMENTS, o['入金'], '未入金'),
+          memo: o['メモ'],
+          flavor: pick(FLAVORS, o['味'], 'ザクロ'),
+          qty: num(o['個数']) || 0,
+          irregular: o['イレギュラー追加'] === 'はい',
+        };
+        break;
+      case '月初在庫':
+        if (!isValidYm(o['月']) || !FLAVORS.includes(o['味'])) break;
+        ensureInventory(db, o['月']).opening[o['味']] = num(o['個数']);
+        break;
+      case '入荷':
+        if (!isValidYm(o['月'])) break;
+        ensureInventory(db, o['月']).arrivals.push({
+          id: o['ID'] || newId(),
+          date: o['日付'],
+          flavor: pick(FLAVORS, o['味'], 'ザクロ'),
+          qty: num(o['個数']) || 0,
+          memo: o['メモ'],
+        });
+        break;
+      case '設定':
+        if (o['メモ'] === 'lastBackupAt' && o['日付']) db.meta.lastBackupAt = o['日付'];
+        break;
+    }
+  });
+  return db;
+}
+
+// Node.js でのテスト用（ブラウザでは無視されます）
+if (typeof module !== 'undefined') {
+  module.exports = {
+    FLAVORS, ymOf, addMonths, monthDiff, isScheduledMonth, shipList, calcStock, ensureRecord,
+    ensureInventory, toCsv, fromCsv, emptyDb, newCustomer, previousEnding, needsBackupReminder,
+  };
+}

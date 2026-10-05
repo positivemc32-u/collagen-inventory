@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#c2185b"/>
+  <circle cx="200" cy="290" r="110" fill="#e53950"/>
+  <path d="M200 175 l-14 -30 h28 z" fill="#8e1030"/>
+  <circle cx="320" cy="290" r="110" fill="#ffd54f"/>
+  <circle cx="320" cy="290" r="78" fill="#ffe98a"/>
+  <path d="M320 180 q30 -50 70 -40 q-20 40 -70 40z" fill="#43a047"/>
+  <text x="256" y="130" text-anchor="middle" font-family="sans-serif" font-size="64" font-weight="700" fill="#fff">COLLAGEN</text>
+</svg>
