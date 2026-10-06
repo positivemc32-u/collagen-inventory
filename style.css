@@ -190,6 +190,19 @@ select.pill.st-発送済み, select.pill.st-手渡し済み, select.pill.pay-入
 .cust { cursor: pointer; }
 .cust-row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 
+.cust.resting { opacity: .65; }
+
+/* 単発の「送る年月」 */
+.chips.wrap { flex-wrap: wrap; overflow: visible; padding-top: 4px; }
+.month-chip { display: inline-flex; align-items: center; gap: 4px; padding-right: 4px; cursor: default; }
+.chip-x {
+  width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255,255,255,.25); color: inherit; font-size: 16px; line-height: 1;
+}
+.add-month { display: flex; gap: 8px; margin-top: 8px; }
+.add-month input { flex: 1; min-width: 0; }
+.add-month .btn { flex: none; }
+
 /* ---------- 在庫 ---------- */
 .stock-card h3 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
 .stock-grid { display: grid; grid-template-columns: 1fr auto; row-gap: 6px; column-gap: 12px; align-items: center; }
@@ -226,7 +239,7 @@ select.pill.st-発送済み, select.pill.st-手渡し済み, select.pill.pay-入
 .field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px; color: var(--muted); }
 .field .opt { font-weight: 400; }
 .field input[type="text"], .field input[type="tel"], .field input[type="number"], .field input[type="month"],
-.field input[type="date"], .field select, .field textarea {
+.field input[type="date"], .field select, .field textarea, .add-month input {
   width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 12px;
   border: 1px solid var(--line); background: var(--bg); font-size: 16px;
 }
