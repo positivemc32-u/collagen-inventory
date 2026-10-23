@@ -94,6 +94,35 @@ function renderEvents() {
     </div>`;
 }
 
+function addMonths(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// 日付を選ぶカレンダー（ほかの会がある日には印を付ける）
+function calendarHtml(ym, selected, selfId) {
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(y, m - 1, 1).getDay();
+  const days = new Date(y, m, 0).getDate();
+  const marked = new Set(db.events.filter((e) => e.id !== selfId).map((e) => e.date));
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push('<span></span>');
+  for (let d = 1; d <= days; d++) {
+    const ds = `${ym}-${String(d).padStart(2, '0')}`;
+    const w = (first + d - 1) % 7;
+    const cls = [w === 0 ? 'sun' : w === 6 ? 'sat' : '', ds === selected ? 'sel' : '', ds === todayStr() ? 'today' : '', marked.has(ds) ? 'has' : ''].join(' ');
+    cells.push(`<button type="button" class="${cls}" data-day="${ds}">${d}</button>`);
+  }
+  return `<div class="cal-head">
+      <button type="button" class="icon-btn" data-cal-move="-1" aria-label="前の月">◀</button>
+      <b>${y}年${m}月</b>
+      <button type="button" class="icon-btn" data-cal-move="1" aria-label="次の月">▶</button>
+    </div>
+    <div class="cal-grid">${[...WEEK].map((w, i) => `<span class="wk ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${w}</span>`).join('')}${cells.join('')}</div>
+    <div class="cal-foot"><button type="button" class="link" data-cal-today>今日にする</button><small>● ほかの会がある日</small></div>`;
+}
+
 function openEventForm(ev) {
   const isNew = !ev;
   const last = sortedEvents()[0];
@@ -102,7 +131,10 @@ function openEventForm(ev) {
   openSheet(`
     <h2>${isNew ? '新しい会を作る' : '会の情報を変更'}</h2>
     <form id="evForm">
-      <div class="field"><label>日付</label><input type="date" name="date" required value="${esc(v.date)}"></div>
+      <div class="field"><label>日付</label>
+        <input type="hidden" name="date" value="${esc(v.date)}">
+        <div class="date-picked" id="datePicked">${esc(dateLabel(v.date))}</div>
+        <div class="cal" id="cal"></div></div>
       <div class="field"><label>会の名前</label><input name="name" required list="evNames" value="${esc(v.name)}" placeholder="例：なごみのたね 体験会">
         <datalist id="evNames">${names.map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <div class="field"><label>種類</label>
@@ -118,7 +150,27 @@ function openEventForm(ev) {
         <button type="submit" class="btn primary">${isNew ? '作成する' : '保存'}</button>
       </div>
     </form>`);
-  $('#evForm').onsubmit = (e) => {
+  const form = $('#evForm');
+  let calYm = v.date.slice(0, 7);
+  const drawCal = () => { $('#cal').innerHTML = calendarHtml(calYm, form.date.value, ev && ev.id); };
+  $('#cal').onclick = (e) => {
+    const mv = e.target.closest('[data-cal-move]');
+    if (mv) calYm = addMonths(calYm, num(mv.dataset.calMove));
+    const day = e.target.closest('[data-day]');
+    if (day) {
+      form.date.value = day.dataset.day;
+      $('#datePicked').textContent = dateLabel(day.dataset.day);
+    }
+    const today = e.target.closest('[data-cal-today]');
+    if (today) {
+      calYm = todayStr().slice(0, 7);
+      form.date.value = todayStr();
+      $('#datePicked').textContent = dateLabel(todayStr());
+    }
+    drawCal();
+  };
+  drawCal();
+  form.onsubmit = (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
     const vals = { date: f.get('date'), name: f.get('name').trim(), kind: f.get('kind'), venue: f.get('venue').trim() };
@@ -385,7 +437,7 @@ function renderSummary() {
       t.mat += p.mat; t.exp += p.exp; t.total += p.total;
     });
     cum += c.balance;
-    return `<tr data-open="${ev.id}"><td>${esc(ev.date.replace(/-/g, '/'))}</td><td class="l">${esc(ev.name)}</td><td>${c.people}</td>
+    return `<tr data-open="${ev.id}"><td>${esc(dateShort(ev.date))}</td><td class="l">${esc(ev.name)}</td><td>${c.people}</td>
       <td>${yen(c.sales)}</td><td>${yen(c.parking)}</td><td>${yen(c.material)}</td><td>${yen(c.expense)}</td>
       <td class="${c.balance < 0 ? 'minus' : ''}"><b>${yen(c.balance)}</b></td><td>${yen(cum)}</td></tr>`;
   });
