@@ -4,6 +4,8 @@
 インストール不要で、スマホのブラウザで開いて「ホーム画面に追加」すればアプリのように使えます。
 
 > 🧾 **体験会の精算アプリ** も同じ場所にあります → `taikenkai/` フォルダ（URL の最後に `/taikenkai/` を付けて開きます）。詳しくは [taikenkai/README.md](taikenkai/README.md)
+>
+> 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
 
 ---
 
