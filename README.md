@@ -4,6 +4,8 @@
 インストール不要で、スマホのブラウザで開いて「ホーム画面に追加」すればアプリのように使えます。
 
 > 🧾 **体験会の精算アプリ** も同じ場所にあります → `taikenkai/` フォルダ（URL の最後に `/taikenkai/` を付けて開きます）。詳しくは [taikenkai/README.md](taikenkai/README.md)
+>
+> 📒 **荒谷町 会計帳簿アプリ** → `aratani/` フォルダ（URL の最後に `/aratani/` を付けて開きます）。詳しくは [aratani/README.md](aratani/README.md)
 
 ---
 
