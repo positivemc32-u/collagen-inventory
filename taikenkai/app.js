@@ -360,7 +360,7 @@ function settleHtml(ev, c, ch, ms) {
   const limit = num(db.settings.settleLimit);
   const tableAndButton = (label) => `
     ${personTable(plan.rows, plan.total, n)}
-    <p class="hint">会のお金（手元の現金）は ${yen(plan.cash)}。上のとおりにやり取りすると、ちょうど 0円 になります。端数の1円は上の人から順に割り振っています。</p>
+    ${cashFlowHtml(ev, c, ch, plan)}
     <button type="button" class="btn primary block" data-act="settle">${label}</button>`;
   if (needsSettle(ch.total, db.settings)) {
     return `${head}
@@ -379,6 +379,30 @@ function settleHtml(ev, c, ch, ms) {
     </details>`;
 }
 
+// 会のお金（手元の現金）の流れ：精算のやり取りをすると、ちょうど 0円 になる
+function cashFlowHtml(ev, c, ch, plan) {
+  const poolExp = ev.expenses.filter((x) => !x.paidBy).reduce((s, x) => s + x.amount, 0);
+  const collect = plan.rows.filter((r) => r.net < 0).reduce((s, r) => s - r.net, 0);
+  const hand = plan.rows.filter((r) => r.net > 0).reduce((s, r) => s + r.net, 0);
+  const after = plan.cash + collect - hand;
+  return `<div class="cash-flow">
+    <h3>会のお金の流れ</h3>
+    <table class="result">
+      <tr><th>前回からの繰越</th><td>${signedYen(ch.carryIn)}</td></tr>
+      <tr><th>＋ 売上</th><td>${yen(c.sales)}</td></tr>
+      <tr><th>− 駐車場代の返金</th><td>−${yen(c.parking)}</td></tr>
+      <tr><th>− 会のお金から払った経費</th><td>−${yen(poolExp)}</td></tr>
+      <tr class="sub"><th>＝ いま手元にあるお金</th><td class="${plan.cash < 0 ? 'minus' : ''}">${signedYen(plan.cash)}</td></tr>
+      <tr><th>＋ 「払う」人から受け取る</th><td>+${yen(collect)}</td></tr>
+      <tr><th>− 「もらう」人に渡す</th><td>−${yen(hand)}</td></tr>
+      <tr class="bal"><th>＝ 精算のあと</th><td>${signedYen(after)}</td></tr>
+    </table>
+    ${plan.cash < 0 ? `<p class="note">⚠️ 「会のお金から払った経費」${yen(poolExp)} が、手元にあったお金より ${yen(-plan.cash)} 多くなっています。
+      実際にはだれかが自分のお金で払っていた場合は、③ 経費でその経費の「立て替えた人」を選んでください（その人の「もらう」に入ります）。</p>` : ''}
+    <p class="hint">端数の1円は上の人から順に割り振っています。</p>
+  </div>`;
+}
+
 // 人ごとの支払い金額の表（材料代・立替経費と、等分の負担／分配を相殺）
 function personTable(rows, total, n) {
   const shareLabel = total < 0 ? '負担' : '分配';
@@ -391,7 +415,7 @@ function personTable(rows, total, n) {
       <td class="net">${r.net > 0 ? `もらう<br>${yen(r.net)}` : r.net < 0 ? `払う<br>${yen(-r.net)}` : 'なし'}</td>
     </tr>`).join('')}</tbody>
     <tfoot><tr><th class="l">計</th><th>${yen(rows.reduce((s, r) => s + r.mat, 0))}</th><th>${yen(rows.reduce((s, r) => s + r.exp, 0))}</th>
-      <th>${signedYen(rows.reduce((s, r) => s + r.share, 0))}</th><th><small>現金</small><br>${yen(rows.reduce((s, r) => s + r.net, 0))}</th></tr></tfoot>
+      <th>${signedYen(rows.reduce((s, r) => s + r.share, 0))}</th><th></th></tr></tfoot>
   </table></div>`;
 }
 
