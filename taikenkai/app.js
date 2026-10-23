@@ -219,25 +219,25 @@ function renderEvent() {
 
     <section class="panel">
       <div class="panel-head"><h2>② 材料の使用量（返金）</h2><span data-calc="material"></span></div>
-      <p class="hint">材料を出した人の欄に、使った回数を入れてください。単価×回数をその人に返金します。</p>
+      <p class="hint">材料を出した人の欄に、使った回数を入れてください。単価×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）×回数をその人に返金します。</p>
       <div class="mat-wrap">
         <table class="mat">
-          <thead><tr><th class="mname">材料（単価）</th>${ms.map((m) => `<th>${esc(m.name)}</th>`).join('')}<th>計</th></tr></thead>
+          <thead><tr><th class="mname">材料（単価）</th>${ms.map((m) => `<th>${esc(m.name)}<small class="rate">${rateOf(ev, ms, m.id)}%</small></th>`).join('')}<th>計</th></tr></thead>
           <tbody>
             ${ev.materials.map((m) => `<tr>
               <th class="mname">${esc(m.name)}<small>${yen(m.price)}</small></th>
-              ${ms.map((mb) => `<td data-label="${esc(mb.name)}"><div class="stepper">
+              ${ms.map((mb) => `<td data-label="${esc(mb.name)}（${rateOf(ev, ms, mb.id)}%）"><div class="stepper">
                 <button type="button" class="step" data-step="-1" data-mat="${m.id}" data-mem="${mb.id}" aria-label="減らす">−</button>
                 <input type="number" min="0" inputmode="numeric" class="cnt" data-mat="${m.id}" data-mem="${mb.id}" value="${usageCount(ev, m.id, mb.id) || ''}" placeholder="0">
                 <button type="button" class="step" data-step="1" data-mat="${m.id}" data-mem="${mb.id}" aria-label="増やす">＋</button>
-              </div></td>`).join('')}
+              </div><small class="unit">1回 ${yen(refundUnit(m.price, rateOf(ev, ms, mb.id)))}</small></td>`).join('')}
               <td class="rowsum" data-label="計" data-calc="row-${m.id}"></td>
             </tr>`).join('')}
           </tbody>
           <tfoot><tr><th class="mname">返金額</th>${ms.map((mb) => `<td data-label="${esc(mb.name)}" data-calc="mem-${mb.id}"></td>`).join('')}<td data-label="計" data-calc="material"></td></tr></tfoot>
         </table>
       </div>
-      <button type="button" class="btn small" data-act="edit-mats">材料・単価をこの会だけ変更</button>
+      <button type="button" class="btn small" data-act="edit-mats">材料・単価・返金の割合をこの会だけ変更</button>
     </section>
 
     <section class="panel">
@@ -379,9 +379,13 @@ function openMaterialsForm() {
   const ev = currentEvent();
   const unused = db.settings.materials.filter((m) => !ev.materials.some((x) => x.id === m.id));
   openSheet(`
-    <h2>この会の材料・単価</h2>
-    <p class="hint">ここでの変更はこの会だけに反映されます。毎回の単価を変えるときは「設定」で変更してください。</p>
+    <h2>この会の材料・単価・返金の割合</h2>
+    <p class="hint">ここでの変更はこの会だけに反映されます。毎回の内容を変えるときは「設定」で変更してください。</p>
     <form id="matForm">
+      <h3>返金の割合（単価の何％を返すか）</h3>
+      <div class="rate-grid">${members().map((m) => `<label>${esc(m.name)}
+        <span class="pct"><input type="number" inputmode="numeric" min="0" max="100" name="rate_${esc(m.id)}" value="${rateOf(ev, members(), m.id)}">%</span></label>`).join('')}</div>
+      <h3>材料と単価</h3>
       <div id="matRows">${ev.materials.map((m) => matRowHtml(m)).join('')}</div>
       <div class="chips">
         ${unused.map((m) => `<button type="button" class="chip" data-add-mat="${m.id}">＋ ${esc(m.name)}</button>`).join('')}
@@ -407,10 +411,19 @@ function openMaterialsForm() {
     ev.materials = [...document.querySelectorAll('#matRows .edit-row')]
       .map((r) => ({ id: r.dataset.id, name: r.querySelector('[name=n]').value.trim(), price: num(r.querySelector('[name=p]').value) }))
       .filter((m) => m.name);
+    members().forEach((m) => { ev.rates[m.id] = num(e.target.elements['rate_' + m.id].value); });
     persist();
     closeSheet();
     render();
   };
+}
+
+function memRowHtml(m) {
+  return `<div class="edit-row" data-id="${esc(m.id)}">
+    <input name="n" value="${esc(m.name)}" placeholder="名前">
+    <span class="pct"><input name="r" type="number" inputmode="numeric" min="0" max="100" value="${m.rate == null ? 100 : m.rate}" aria-label="返金の割合">%</span>
+    <button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button>
+  </div>`;
 }
 
 function matRowHtml(m) {
@@ -474,9 +487,9 @@ function renderSettings() {
     <p class="hint">ここで変えた内容は、これから作る会と新しく入力する分に使われます（過去の会の金額は変わりません）。</p>
     <form id="setForm">
       <section class="panel">
-        <h2>材料を出す人</h2>
-        <div id="memRows">${s.members.map((m) => `<div class="edit-row" data-id="${esc(m.id)}">
-          <input name="n" value="${esc(m.name)}"><button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button></div>`).join('')}</div>
+        <h2>材料を出す人と返金の割合</h2>
+        <p class="hint">材料の単価の何％をその人に返すか（例：倉は50％、ほかは80％）</p>
+        <div id="memRows">${s.members.map((m) => memRowHtml(m)).join('')}</div>
         <button type="button" class="btn small" data-add-row="mem">＋ 人を追加</button>
       </section>
       <section class="panel">
@@ -516,7 +529,8 @@ function renderSettings() {
       const k = add.dataset.addRow;
       const simple = `<div class="edit-row" data-id="${uid()}"><input name="n" placeholder="名前"><button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button></div>`;
       const box = { mem: '#memRows', mat: '#setMatRows', menu: '#menuRows', exp: '#expRows' }[k];
-      $(box).insertAdjacentHTML('beforeend', k === 'mem' || k === 'exp' ? simple : matRowHtml({ id: uid(), name: '', price: 0 }));
+      const html = { mem: () => memRowHtml({ id: uid(), name: '', rate: 80 }), exp: () => simple }[k];
+      $(box).insertAdjacentHTML('beforeend', html ? html() : matRowHtml({ id: uid(), name: '', price: 0 }));
       $(box).lastElementChild.querySelector('input').focus();
     }
   };
@@ -526,7 +540,9 @@ function renderSettings() {
   form.onsubmit = (e) => {
     e.preventDefault();
     const f = new FormData(form);
-    s.members = [...document.querySelectorAll('#memRows .edit-row')].map((r) => ({ id: r.dataset.id, name: r.querySelector('input').value.trim() })).filter((m) => m.name);
+    s.members = [...document.querySelectorAll('#memRows .edit-row')]
+      .map((r) => ({ id: r.dataset.id, name: r.querySelector('[name=n]').value.trim(), rate: num(r.querySelector('[name=r]').value) }))
+      .filter((m) => m.name);
     s.materials = priced('#setMatRows');
     s.menus = priced('#menuRows');
     s.expenseItems = [...document.querySelectorAll('#expRows input')].map((i) => i.value.trim()).filter(Boolean);
