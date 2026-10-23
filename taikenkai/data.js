@@ -54,6 +54,8 @@ function defaultSettings() {
     // 駐車場代の補助：2000円以上で100円、3000円以上で300円
     parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
     defaultVenue: '松雲堂',
+    // 合計のマイナスがこの金額を超えたら精算。プラスやそれ以内のマイナスは持ち越し
+    settleLimit: 1000,
     rev: 6,
   };
 }
@@ -424,6 +426,11 @@ function settlementPlan(c, total, members) {
     return { id: p.id, mat: p.mat, exp: p.exp, owed: p.total, share, net: p.total + share };
   }).filter((r) => r.owed || r.share || members.some((m) => m.id === r.id && m.share));
   return { total, sharers: sharers.length, rows, cash: rows.reduce((s, r) => s + r.net, 0) };
+}
+
+// 精算が必要か（マイナスが上限を超えたとき）
+function needsSettle(total, settings) {
+  return total < -num(settings.settleLimit);
 }
 
 // 精算した後で内容が変わっていないか

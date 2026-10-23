@@ -73,7 +73,7 @@ function renderEvents() {
     <div class="total-card">
       <div class="total-label">今の会のお金（前回までの繰越）</div>
       <div class="total-value ${chain.current < 0 ? 'minus' : ''}">${signedYen(chain.current)}</div>
-      <div class="total-sub">${chain.current < 0 ? 'マイナスです。会の画面の「⑤ 繰越と精算」でみんなで精算できます' : '次の会に繰り越されます'}　／　これまでの収支の合計（${list.length}回）${signedYen(sum)}</div>
+      <div class="total-sub">${needsSettle(chain.current, db.settings) ? `マイナスが ${yen(num(db.settings.settleLimit))} を超えています。最後の会の「⑤ 繰越と精算」で精算してください` : '次の会に持ち越します'}　／　これまでの収支の合計（${list.length}回）${signedYen(sum)}</div>
     </div>
     <button type="button" class="btn primary block" data-act="new-event">＋ 新しい会を作る</button>
     ${list.length ? '' : '<p class="empty">まだ会がありません。「＋ 新しい会を作る」から始めてください。</p>'}
@@ -91,7 +91,9 @@ function renderEvents() {
             <span>返金・経費 ${yen(c.parking + c.material + c.expense)}</span>
           </div>
           <div class="event-bal">今回 <b class="${c.balance < 0 ? 'minus' : ''}">${signedYen(c.balance)}</b>
-            ${ev.settle ? '<span class="badge settled">✅ 精算済み</span>' : `<small>繰越込み ${signedYen(chain.byId[ev.id].total)}</small>`}</div>
+            ${ev.settle ? '<span class="badge settled">✅ 精算済み</span>'
+              : needsSettle(chain.byId[ev.id].total, db.settings) ? `<span class="badge need">⚠️ 要精算 ${signedYen(chain.byId[ev.id].total)}</span>`
+                : `<small>持ち越し ${signedYen(chain.byId[ev.id].total)}</small>`}</div>
         </button>`;
       }).join('')}
     </div>`;
@@ -349,35 +351,72 @@ function settleHtml(ev, c, ch, ms) {
       ${changed ? `<div class="notice">⚠️ 精算したあとで内容が変わりました。いまの内容で計算し直すと下の「いまの計算」になります。
         <button type="button" class="btn small" data-act="settle">いまの内容で精算し直す</button></div>` : ''}
       <h3>精算したときのやり取り</h3>
-      ${personCards(ev.settle.rows, ev.settle.total, ev.settle.sharers || plan.sharers)}
-      ${changed ? `<h3>いまの計算</h3>${personCards(plan.rows, plan.total, plan.sharers)}` : ''}
+      ${personTable(ev.settle.rows, ev.settle.total, ev.settle.sharers || plan.sharers)}
+      ${changed ? `<h3>いまの計算</h3>${personTable(plan.rows, plan.total, plan.sharers)}` : ''}
       <button type="button" class="btn block" data-act="unsettle">精算を取り消す</button>`;
   }
 
   const n = plan.sharers;
-  const intro = ch.total < 0
-    ? `<p>合計が <b class="minus">マイナス ${yen(-ch.total)}</b> です。足りない分を ${n}人で等分して（1人 約${yen(-ch.total / n)}）、各自の材料代・立替経費と相殺します。</p>`
-    : ch.total > 0
-      ? `<p>合計が <b>プラス ${yen(ch.total)}</b> です。何もしなければ次の会に繰り越します。${n}人で分けて精算する場合は下のとおりです（1人 約${yen(ch.total / n)}）。</p>`
-      : '<p>合計は 0円 です。材料代・立替経費を返して精算できます。</p>';
-  const label = ch.total < 0 ? '支払いが終わったので精算済みにする（プラマイゼロ）' : ch.total > 0 ? `${n}人で分けて精算済みにする` : '精算済みにする';
-  return `${head}${intro}
-    ${personCards(plan.rows, plan.total, n)}
-    <p class="hint">会のお金（手元の現金）は ${yen(plan.cash)}。上のとおりにやり取りすると、ちょうど 0円 になります。端数の1円は上の人から順に割り振っています。</p>
+  const limit = num(db.settings.settleLimit);
+  const tableAndButton = (label) => `
+    ${personTable(plan.rows, plan.total, n)}
+    ${cashFlowHtml(ev, c, ch, plan)}
     <button type="button" class="btn primary block" data-act="settle">${label}</button>`;
+  if (needsSettle(ch.total, db.settings)) {
+    return `${head}
+      <div class="status need">⚠️ <b>精算</b>：合計のマイナス ${yen(-ch.total)} が ${yen(limit)} を超えたので、みんなで精算します。</div>
+      <p>足りない ${yen(-ch.total)} を ${n}人で等分して（1人 約${yen(-ch.total / n)}）負担し、各自の材料代・立替経費と相殺した支払い金額です。</p>
+      ${tableAndButton('支払いが終わったので精算済みにする（プラマイゼロ）')}`;
+  }
+  const why = ch.total >= 0
+    ? `合計がプラス（${signedYen(ch.total)}）なので、次の会に持ち越します。`
+    : `合計のマイナス（${yen(-ch.total)}）が ${yen(limit)} 以内なので、次の会に持ち越します。${yen(limit)} を超えたら精算になります。`;
+  return `${head}
+    <div class="status carry">➡️ <b>持ち越し</b>：${why}</div>
+    <details class="settle-anyway"><summary>今回精算する場合の計算を見る</summary>
+      <p class="hint">${ch.total < 0 ? `足りない分を ${n}人で等分して負担` : ch.total > 0 ? `残ったお金を ${n}人で等分` : '材料代・立替経費を返すだけ'}した場合の支払い金額です。</p>
+      ${tableAndButton(ch.total > 0 ? `${n}人で分けて精算済みにする` : '精算済みにする')}
+    </details>`;
 }
 
-// 人ごとの「もらう／払う」
-function personCards(rows, total, n) {
-  const shareLabel = total < 0 ? 'マイナス負担' : 'プラス分配';
-  return `<div class="person-cards">${rows.map((r) => `
-    <div class="person ${r.net > 0 ? 'get' : r.net < 0 ? 'pay' : ''}">
-      <div class="pname">${esc(memberName(r.id))}</div>
-      <div class="pline"><span>材料代</span><span>${yen(r.mat)}</span></div>
-      <div class="pline"><span>立替経費</span><span>${yen(r.exp)}</span></div>
-      <div class="pline"><span>${r.share ? shareLabel : '等分'}</span><span>${r.share ? signedYen(r.share) : (n && total ? '対象外' : '—')}</span></div>
-      <div class="pnet">${r.net > 0 ? `もらう <b>${yen(r.net)}</b>` : r.net < 0 ? `払う <b>${yen(-r.net)}</b>` : 'やり取りなし'}</div>
-    </div>`).join('')}</div>`;
+// 会のお金（手元の現金）の流れ：精算のやり取りをすると、ちょうど 0円 になる
+function cashFlowHtml(ev, c, ch, plan) {
+  const poolExp = ev.expenses.filter((x) => !x.paidBy).reduce((s, x) => s + x.amount, 0);
+  const collect = plan.rows.filter((r) => r.net < 0).reduce((s, r) => s - r.net, 0);
+  const hand = plan.rows.filter((r) => r.net > 0).reduce((s, r) => s + r.net, 0);
+  const after = plan.cash + collect - hand;
+  return `<div class="cash-flow">
+    <h3>会のお金の流れ</h3>
+    <table class="result">
+      <tr><th>前回からの繰越</th><td>${signedYen(ch.carryIn)}</td></tr>
+      <tr><th>＋ 売上</th><td>${yen(c.sales)}</td></tr>
+      <tr><th>− 駐車場代の返金</th><td>−${yen(c.parking)}</td></tr>
+      <tr><th>− 会のお金から払った経費</th><td>−${yen(poolExp)}</td></tr>
+      <tr class="sub"><th>＝ いま手元にあるお金</th><td class="${plan.cash < 0 ? 'minus' : ''}">${signedYen(plan.cash)}</td></tr>
+      <tr><th>＋ 「払う」人から受け取る</th><td>+${yen(collect)}</td></tr>
+      <tr><th>− 「もらう」人に渡す</th><td>−${yen(hand)}</td></tr>
+      <tr class="bal"><th>＝ 精算のあと</th><td>${signedYen(after)}</td></tr>
+    </table>
+    ${plan.cash < 0 ? `<p class="note">⚠️ 「会のお金から払った経費」${yen(poolExp)} が、手元にあったお金より ${yen(-plan.cash)} 多くなっています。
+      実際にはだれかが自分のお金で払っていた場合は、③ 経費でその経費の「立て替えた人」を選んでください（その人の「もらう」に入ります）。</p>` : ''}
+    <p class="hint">端数の1円は上の人から順に割り振っています。</p>
+  </div>`;
+}
+
+// 人ごとの支払い金額の表（材料代・立替経費と、等分の負担／分配を相殺）
+function personTable(rows, total, n) {
+  const shareLabel = total < 0 ? '負担' : '分配';
+  return `<div class="table-wrap"><table class="grid settle-table">
+    <thead><tr><th class="l">名前</th><th>材料代</th><th>立替</th><th>${shareLabel}</th><th>支払い</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr class="${r.net > 0 ? 'get' : r.net < 0 ? 'pay' : ''}">
+      <th class="l">${esc(memberName(r.id))}</th>
+      <td>${yen(r.mat)}</td><td>${yen(r.exp)}</td>
+      <td>${r.share ? signedYen(r.share) : (n && total ? '対象外' : '—')}</td>
+      <td class="net">${r.net > 0 ? `もらう<br>${yen(r.net)}` : r.net < 0 ? `払う<br>${yen(-r.net)}` : 'なし'}</td>
+    </tr>`).join('')}</tbody>
+    <tfoot><tr><th class="l">計</th><th>${yen(rows.reduce((s, r) => s + r.mat, 0))}</th><th>${yen(rows.reduce((s, r) => s + r.exp, 0))}</th>
+      <th>${signedYen(rows.reduce((s, r) => s + r.share, 0))}</th><th></th></tr></tfoot>
+  </table></div>`;
 }
 
 function stepperHtml(attrs, value, label) {
@@ -574,7 +613,7 @@ function renderSummary() {
     return `<tr data-open="${ev.id}"><td>${esc(dateShort(ev.date))}</td><td class="l">${esc(ev.name)}</td><td>${c.people}</td>
       <td>${yen(c.sales)}</td><td>${yen(c.parking)}</td><td>${yen(c.material)}</td><td>${yen(c.expense)}</td>
       <td class="${c.balance < 0 ? 'minus' : ''}"><b>${signedYen(c.balance)}</b></td><td>${signedYen(ch.carryIn)}</td>
-      <td class="${ch.total < 0 ? 'minus' : ''}">${signedYen(ch.total)}</td><td>${ev.settle ? '✅ 精算済み' : '繰越'}</td></tr>`;
+      <td class="${ch.total < 0 ? 'minus' : ''}">${signedYen(ch.total)}</td><td>${ev.settle ? '✅ 精算済み' : needsSettle(ch.total, db.settings) ? '⚠️ 要精算' : '持ち越し'}</td></tr>`;
   });
   main.innerHTML = `
     <div class="field inline"><label>期間</label>
@@ -652,6 +691,8 @@ function renderSettings() {
           <div class="field"><label>この金額以上で</label><input type="number" name="t2" value="${s.parking.t2}"></div>
           <div class="field"><label>返金</label><input type="number" name="a2" value="${s.parking.a2}"></div>
         </div>
+        <div class="field"><label>合計のマイナスがこの金額を超えたら精算（円）</label><input type="number" inputmode="numeric" name="settleLimit" value="${num(s.settleLimit)}">
+          <small class="hint">プラスや、この金額以内のマイナスは次の会に持ち越します。</small></div>
         <div class="field"><label>いつもの会場</label><input name="venue" value="${esc(s.defaultVenue)}"></div>
       </section>
       <button type="submit" class="btn primary block">設定を保存</button>
@@ -693,6 +734,7 @@ function renderSettings() {
     s.expenseItems = [...document.querySelectorAll('#expRows input')].map((i) => i.value.trim()).filter(Boolean);
     s.parking = { t1: num(f.get('t1')), a1: num(f.get('a1')), t2: num(f.get('t2')), a2: num(f.get('a2')) };
     s.defaultVenue = f.get('venue').trim();
+    s.settleLimit = num(f.get('settleLimit'));
     persist();
     render();
     toast('設定を保存しました');
