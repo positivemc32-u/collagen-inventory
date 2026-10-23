@@ -326,3 +326,7 @@ table.settle-table tbody tr { cursor: default; }
 table.settle-table tbody tr:hover { background: none; }
 label.share { display: inline-flex; align-items: center; gap: 3px; font-size: .8rem; font-weight: 700; white-space: nowrap; }
 label.share input { width: 18px; height: 18px; min-height: 0; margin: 0; }
+.cash-flow { margin-top: 6px; }
+.cash-flow table.result th { font-weight: 500; font-size: .9rem; }
+.cash-flow table.result tr.sub th, .cash-flow table.result tr.sub td { font-weight: 800; border-bottom: 2px solid var(--line); }
+.cash-flow table.result tr.bal th, .cash-flow table.result tr.bal td { font-size: 1.05rem; }
