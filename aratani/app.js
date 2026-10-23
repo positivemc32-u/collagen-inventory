@@ -11,11 +11,11 @@ const KURIKOSHI = '前年度繰越金';
 
 /* ---------- 初期値 ---------- */
 const DEFAULT_ACCOUNTS = [
-  { id: 'ku', name: '区会計', fullName: '荒谷区会計' },
-  { id: 'rindo', name: '林道会計', fullName: '林道1号会計' },
-  { id: 'tokko', name: '篤行会計', fullName: '篤行財産会計' },
-  { id: 'kendo', name: '県道会計', fullName: '県道会計' },
-  { id: 'tokubetsu', name: '特別会計', fullName: '区長資金特別会計' },
+  { id: 'ku', name: '区会計', fullName: '荒谷区会計', layout: 'tate' },
+  { id: 'rindo', name: '林道会計', fullName: '林道1号会計', layout: 'yoko' },
+  { id: 'tokko', name: '篤行会計', fullName: '篤行財産会計', layout: 'yoko' },
+  { id: 'kendo', name: '県道会計', fullName: '県道会計', layout: 'yoko' },
+  { id: 'tokubetsu', name: '特別会計', fullName: '区長資金特別会計', layout: 'yoko' },
 ];
 
 const DEFAULT_SUBJECTS_IN = [
@@ -27,6 +27,13 @@ const DEFAULT_SUBJECTS_OUT = [
   '除雪手当', '林道維持管理費', '草刈り', '役員手当', '賃金', '保険料', '祭り経費',
   '慶弔費', '消防費', '各種募金', '各種負担金', '振込手数料', '会計間繰出',
 ];
+// 帳簿の科目 → 決算書の項目（ここにないものは科目名のまま決算書に出る）
+const DEFAULT_KESSAN = {
+  区費: '負担金（区費）', 利息: '預金利息', 賃付: '貸付・使用料', 寄付: '寄付金',
+  電気料: '光熱水費', 水道料: '光熱水費', 集会所管理費: '集会場等維持管理費',
+  除雪機維持費: '除雪清掃対策費', 除雪手当: '除雪清掃対策費', 事務費: '事務経費', 会議費: '事務経費',
+};
+
 const DEFAULT_PARTNERS = [
   'NTT西日本', '加賀市', '北陸電力', '加賀市上下水道', 'JA加賀', '日本赤十字社',
   '加賀市社会福祉協議会', '町内会協議会', '神社',
@@ -41,8 +48,8 @@ function defaultState() {
     version: APP_VERSION,
     accounts: DEFAULT_ACCOUNTS.map(a => ({ ...a })),
     subjects: [
-      ...DEFAULT_SUBJECTS_IN.map(name => ({ name, type: 'in' })),
-      ...DEFAULT_SUBJECTS_OUT.map(name => ({ name, type: 'out' })),
+      ...DEFAULT_SUBJECTS_IN.map(name => ({ name, type: 'in', kessan: DEFAULT_KESSAN[name] || name })),
+      ...DEFAULT_SUBJECTS_OUT.map(name => ({ name, type: 'out', kessan: DEFAULT_KESSAN[name] || name })),
     ],
     people: [],
     partners: DEFAULT_PARTNERS.slice(),
@@ -70,9 +77,16 @@ const ui = {
 function load() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return Object.assign(defaultState(), JSON.parse(raw));
+    if (raw) return migrate(Object.assign(defaultState(), JSON.parse(raw)));
   } catch (e) { console.warn(e); }
   return defaultState();
+}
+// 古い形式で保存されたデータに、あとから増えた設定を補う
+function migrate(st) {
+  for (const a of st.accounts) {
+    if (!a.layout) a.layout = (DEFAULT_ACCOUNTS.find(d => d.id === a.id) || { layout: 'tate' }).layout;
+  }
+  return st;
 }
 function save() {
   try {
@@ -469,7 +483,7 @@ function bindLedgerEvents(acc, rows, closing) {
     b.addEventListener('click', () => {
       const v = ui.pendingNew[0].value;
       const kind = b.dataset.add;
-      if (kind === 'subject-in' || kind === 'subject-out') state.subjects.push({ name: v, type: kind === 'subject-in' ? 'in' : 'out' });
+      if (kind === 'subject-in' || kind === 'subject-out') state.subjects.push({ name: v, type: kind === 'subject-in' ? 'in' : 'out', kessan: v });
       else if (kind === 'person') addPerson(v, '');
       else if (kind === 'partner') state.partners.push(v);
       else if (kind === 'template') state.templates.push(v);
@@ -526,6 +540,42 @@ function subjectTotals(account, year) {
   return map;
 }
 
+function kessanOf(subject) {
+  const s = state.subjects.find(x => x.name === subject);
+  return (s && s.kessan) || DEFAULT_KESSAN[subject] || subject;
+}
+function bookPeriod(account, year) {
+  const list = bookEntries(account, year);
+  return { from: list.length ? list[0].date : `${year}-03-21`, to: list.length ? list[list.length - 1].date : `${year + 1}-03-20` };
+}
+// 決算書の項目ごとにまとめる。前年度繰越金は収入の先頭に置く
+function kessanData(account, year) {
+  const build = field => {
+    const items = new Map();
+    for (const e of bookEntries(account, year)) {
+      if (!e[field]) continue;
+      const name = kessanOf(e.subject);
+      const it = items.get(name) || { item: name, amount: 0, subjects: new Map(), tekiyo: [] };
+      it.amount += e[field];
+      it.subjects.set(e.subject, (it.subjects.get(e.subject) || 0) + e[field]);
+      if (e.tekiyo && !it.tekiyo.includes(e.tekiyo)) it.tekiyo.push(e.tekiyo);
+      items.set(name, it);
+    }
+    const list = [...items.values()].map(it => ({
+      item: it.item,
+      amount: it.amount,
+      subjects: [...it.subjects.keys()],
+      note: it.subjects.size > 1
+        ? [...it.subjects].map(([k, v]) => `${k} ${yenAlways(v)}円`).join('、')
+        : it.tekiyo.slice(0, 4).join('、') + (it.tekiyo.length > 4 ? ' ほか' : ''),
+    }));
+    return list.sort((a, b) => (b.subjects.includes(KURIKOSHI) ? 1 : 0) - (a.subjects.includes(KURIKOSHI) ? 1 : 0));
+  };
+  const ins = build('income');
+  const outs = build('expense');
+  return { ins, outs, sumIn: ins.reduce((s, x) => s + x.amount, 0), sumOut: outs.reduce((s, x) => s + x.amount, 0) };
+}
+
 function renderSummary(main) {
   const acc = accountById(ui.account);
   const totals = subjectTotals(acc.id, ui.year);
@@ -559,6 +609,7 @@ function renderSummary(main) {
     </div>
     <div class="card"><h2>次年度への繰越額：${yenAlways(sumIn - sumOut)}円</h2>
       <p class="hint">収入合計（前年度繰越金を含む）− 支出合計 で計算しています。</p></div>
+    ${kessanPreviewHTML(acc, ui.year)}
     <div class="card"><h2>月ごとの動き</h2>
       <table class="ledger"><thead><tr><th>月</th><th>収入</th><th>支出</th></tr></thead><tbody>
       ${monthly.map(r => `<tr><td>${r.label}</td><td class="num in">${yen(r.inc)}</td><td class="num out">${yen(r.exp)}</td></tr>`).join('')}
@@ -566,6 +617,20 @@ function renderSummary(main) {
     </div>
     <div class="card no-print"><button class="btn" onclick="window.print()">🖨 印刷</button></div>`;
   bindBookSelector();
+}
+
+function kessanPreviewHTML(acc, year) {
+  const k = kessanData(acc.id, year);
+  const p = bookPeriod(acc.id, year);
+  const table = (title, list, sum) => `<h3>${title}</h3>
+    <table class="ledger"><thead><tr><th>項目</th><th>決算額</th><th>摘要</th></tr></thead><tbody>
+    ${list.map(x => `<tr><td>${esc(x.item)}</td><td class="num">${yenAlways(x.amount)}</td><td>${esc(x.note)}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>合計</td><td class="num">${yenAlways(sum)}</td><td></td></tr></tfoot></table>`;
+  return `<div class="card"><h2>決算書の形（${yearLabel(year)} ${esc(acc.fullName)}収支決算書）</h2>
+    <p class="hint">自${fullDate(p.from)}～至${fullDate(p.to)}。科目のまとめ方は「候補の登録」→「決算書のまとめ方」で変えられます。Excel に書き出すと「決算書」シートが付きます。</p>
+    ${table('収入の部', k.ins, k.sumIn)}
+    ${table('支出の部', k.outs, k.sumOut)}
+    <p><b>令和${reiwa(year) + 1}年度へ繰越額：${yenAlways(k.sumIn - k.sumOut)}円</b></p></div>`;
 }
 
 /* ---------- 📝 候補の登録 ---------- */
@@ -608,9 +673,22 @@ function renderMaster(main) {
       <div class="card"><h2>会計の名前</h2>
         ${state.accounts.map((a, i) => `<div class="row" style="margin-bottom:8px">
           <label>短い名前<input type="text" data-acc="${i}" data-f="name" value="${esc(a.name)}"></label>
-          <label>正式な名前<input type="text" data-acc="${i}" data-f="fullName" value="${esc(a.fullName)}"></label></div>`).join('')}
-        <button class="btn" id="saveAccounts">名前を保存</button>
+          <label>正式な名前<input type="text" data-acc="${i}" data-f="fullName" value="${esc(a.fullName)}"></label>
+          <label>決算書の形<select data-acc="${i}" data-f="layout">
+            <option value="tate"${a.layout !== 'yoko' ? ' selected' : ''}>縦（収入の部の下に支出の部）</option>
+            <option value="yoko"${a.layout === 'yoko' ? ' selected' : ''}>横（左に収入、右に支出）</option>
+          </select></label></div>`).join('')}
+        <button class="btn" id="saveAccounts">保存</button>
       </div>
+    </div>
+    <div class="card"><h2>決算書のまとめ方</h2>
+      <p class="hint">帳簿の科目を、決算書のどの項目にまとめるかを決めます。同じ項目名にした科目は、決算書で1行にまとまります（例：電気料と水道料 → 光熱水費）。</p>
+      <datalist id="kessanItems">${[...new Set(state.subjects.map(x => x.kessan || x.name))].map(v => `<option value="${esc(v)}">`).join('')}</datalist>
+      <div class="table-wrap"><table class="ledger"><thead><tr><th>帳簿の科目</th><th>収入/支出</th><th>決算書の項目</th></tr></thead><tbody>
+      ${state.subjects.map((x, i) => `<tr><td>${esc(x.name)}</td><td>${x.type === 'in' ? '収入' : '支出'}</td>
+        <td><input type="text" data-kessan="${i}" list="kessanItems" value="${esc(x.kessan || kessanOf(x.name))}"></td></tr>`).join('')}
+      </tbody></table></div>
+      <button class="btn" id="saveKessan" style="margin-top:10px">まとめ方を保存</button>
     </div>`;
 
   main.querySelectorAll('input[name=inputMode]').forEach(r => r.addEventListener('change', () => {
@@ -629,7 +707,7 @@ function renderMaster(main) {
     fn(v); save(); renderMaster(main); toast('追加しました');
   };
   $('#addSubject').addEventListener('click', () => addTo('newSubject', v => {
-    if (!subjectNames().includes(v)) state.subjects.push({ name: v, type: $('#newSubjectType').value });
+    if (!subjectNames().includes(v)) state.subjects.push({ name: v, type: $('#newSubjectType').value, kessan: v });
   }));
   $('#addPerson').addEventListener('click', () => addTo('newPerson', v => addPerson(v, $('#newKana').value.trim())));
   $('#addPartner').addEventListener('click', () => addTo('newPartner', v => { if (!state.partners.includes(v)) state.partners.push(v); }));
@@ -642,6 +720,12 @@ function renderMaster(main) {
       if (name && addPerson(name, kana)) n++;
     }
     save(); renderMaster(main); toast(`${n}人を追加しました`);
+  });
+  $('#saveKessan').addEventListener('click', () => {
+    main.querySelectorAll('[data-kessan]').forEach(inp => {
+      state.subjects[Number(inp.dataset.kessan)].kessan = inp.value.trim() || state.subjects[Number(inp.dataset.kessan)].name;
+    });
+    save(); toast('保存しました'); renderMaster(main);
   });
   $('#saveAccounts').addEventListener('click', () => {
     main.querySelectorAll('[data-acc]').forEach(inp => {
@@ -716,7 +800,7 @@ function renderExcel(main) {
       const data = JSON.parse(await f.text());
       if (!Array.isArray(data.entries)) throw new Error('このアプリのバックアップではないようです');
       if (!confirm(`今のデータを、このバックアップ（${data.entries.length}行）で置き換えます。よろしいですか？`)) return;
-      state = Object.assign(defaultState(), data);
+      state = migrate(Object.assign(defaultState(), data));
       save(); toast('復元しました'); render();
     } catch (err) { alert('復元できませんでした。\n' + err.message); }
     e.target.value = '';
@@ -751,13 +835,17 @@ async function exportExcel(years) {
   // 候補一覧（Excel のプルダウンの元）
   const tekiyoAll = [...new Set([...state.people.map(p => p.name), ...state.partners, ...state.templates])];
   master.columns = [
-    { header: '科目', width: 18 }, { header: '収入/支出', width: 10 }, { header: '', width: 3 },
+    { header: '科目', width: 18 }, { header: '収入/支出', width: 10 }, { header: '決算書の項目', width: 18 },
     { header: '人名', width: 16 }, { header: 'ふりがな', width: 16 }, { header: '', width: 3 },
     { header: '取引先', width: 22 }, { header: '', width: 3 },
     { header: 'よく使う摘要', width: 18 }, { header: '', width: 3 },
     { header: '摘要の候補（まとめ）', width: 22 },
   ];
-  state.subjects.forEach((s, i) => { master.getCell(i + 2, 1).value = s.name; master.getCell(i + 2, 2).value = s.type === 'in' ? '収入' : '支出'; });
+  state.subjects.forEach((s, i) => {
+    master.getCell(i + 2, 1).value = s.name;
+    master.getCell(i + 2, 2).value = s.type === 'in' ? '収入' : '支出';
+    master.getCell(i + 2, 3).value = kessanOf(s.name);
+  });
   state.people.forEach((p, i) => { master.getCell(i + 2, 4).value = p.name; master.getCell(i + 2, 5).value = p.kana || null; });
   state.partners.forEach((p, i) => { master.getCell(i + 2, 7).value = p; });
   state.templates.forEach((p, i) => { master.getCell(i + 2, 9).value = p; });
@@ -783,6 +871,12 @@ async function exportExcel(years) {
 
   const sum = wb.addWorksheet('科目別集計');
   writeSummarySheet(sum, listing);
+  for (const year of years) {
+    const accs = listing.filter(l => l.year === year && bookEntries(l.acc.id, year).length);
+    if (accs.length) writeKessanSheet(wb.addWorksheet(`決算書 R${reiwa(year)}`, {
+      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true },
+    }), year, accs);
+  }
 
   info.columns = [{ width: 24 }, { width: 18 }, { width: 14 }, { width: 10 }];
   info.addRow(['荒谷町 会計帳簿（アプリから書き出し）']).font = { bold: true, size: 14 };
@@ -791,6 +885,7 @@ async function exportExcel(years) {
   info.addRow(['・科目と摘要の欄は▼で一覧から選べます。一覧にないものは、そのまま打ち込めます。']);
   info.addRow(['・差引残高は自動で計算されます。消さないでください。']);
   info.addRow(['・一覧を増やしたいときは「候補一覧」シートの下に書き足してください。']);
+  info.addRow(['・「決算書」シートの金額は帳簿シートから自動で集計されます。摘要の文は自由に直してかまいません。']);
   info.addRow(['・下の表はアプリが読み込むときに使います。消さないでください。']);
   info.addRow([]);
   const hdr = info.addRow(['シート名', '会計', '会計ID', '年度']);
@@ -906,6 +1001,135 @@ function writeSummarySheet(ws, listing) {
   }
 }
 
+// 決算書（総会資料の形）。金額は帳簿シートを参照する計算式なので、Excel で帳簿を直しても追従する
+function writeKessanSheet(ws, year, accs) {
+  ws.columns = [{ width: 5 }, { width: 24 }, { width: 15 }, { width: 26 }, { width: 15 }, { width: 22 }];
+  const money = c => { c.numFmt = '#,##0'; };
+  const boxed = (r, c1, c2) => { for (let c = c1; c <= c2; c++) ws.getCell(r, c).border = border; };
+  const head = (r, c, text) => {
+    const cell = ws.getCell(r, c);
+    cell.value = text; cell.font = { bold: true }; cell.alignment = { horizontal: 'center' };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F5' } };
+  };
+  const sumFormula = (q, subjects, col) => subjects.map(n => `SUMIF(${q}!$B:$B,"${n.replace(/"/g, '""')}",${q}!$${col}:$${col})`).join('+');
+  const totals = [];
+  let r = 1;
+
+  accs.forEach((l, idx) => {
+    const k = kessanData(l.acc.id, year);
+    const p = bookPeriod(l.acc.id, year);
+    const q = `'${l.name}'`;
+    if (idx > 0) ws.getRow(r - 1).addPageBreak();
+    ws.mergeCells(r, 1, r, 6);
+    ws.getCell(r, 1).value = `令和${reiwa(year)}年度　${l.acc.fullName}収支決算書`;
+    ws.getCell(r, 1).font = { bold: true, size: 15 };
+    ws.getCell(r, 1).alignment = { horizontal: 'center' };
+    r++;
+    ws.getCell(r, 2).value = `自${fullDate(p.from)}～至${fullDate(p.to)}`;
+    ws.getCell(r, 6).value = '（単位：円）';
+    ws.getCell(r, 6).alignment = { horizontal: 'right' };
+    r += 2;
+    let inTotalCell, outTotalCell;
+
+    if (l.acc.layout === 'yoko') {
+      ws.mergeCells(r, 2, r, 3); ws.mergeCells(r, 4, r, 5);
+      head(r, 2, '収　入　の　部'); head(r, 4, '支　出　の　部'); boxed(r, 2, 5); r++;
+      head(r, 2, '科　目'); head(r, 3, '金　額'); head(r, 4, '科　目'); head(r, 5, '金　額'); boxed(r, 2, 5); r++;
+      const start = r;
+      const n = Math.max(k.ins.length, k.outs.length, 1);
+      for (let i = 0; i < n; i++, r++) {
+        const a = k.ins[i], b = k.outs[i];
+        if (a) { ws.getCell(r, 2).value = a.item; ws.getCell(r, 3).value = { formula: sumFormula(q, a.subjects, 'D'), result: a.amount }; }
+        if (b) { ws.getCell(r, 4).value = b.item; ws.getCell(r, 5).value = { formula: sumFormula(q, b.subjects, 'E'), result: b.amount }; }
+        money(ws.getCell(r, 3)); money(ws.getCell(r, 5)); boxed(r, 2, 5);
+      }
+      ws.getCell(r, 2).value = '合　計'; ws.getCell(r, 4).value = '合　計';
+      ws.getCell(r, 3).value = { formula: `SUM(C${start}:C${r - 1})`, result: k.sumIn };
+      ws.getCell(r, 5).value = { formula: `SUM(E${start}:E${r - 1})`, result: k.sumOut };
+      inTotalCell = `C${r}`; outTotalCell = `E${r}`;
+      ws.getRow(r).font = { bold: true }; money(ws.getCell(r, 3)); money(ws.getCell(r, 5)); boxed(r, 2, 5);
+      r++;
+      ws.getCell(r, 4).value = `令和${reiwa(year) + 1}年度へ繰越額`;
+      ws.getCell(r, 5).value = { formula: `${inTotalCell}-${outTotalCell}`, result: k.sumIn - k.sumOut };
+      ws.getRow(r).font = { bold: true }; money(ws.getCell(r, 5)); boxed(r, 4, 5);
+      totals.push({ name: l.acc.fullName, cell: `E${r}`, value: k.sumIn - k.sumOut });
+      r++;
+      // 内訳（摘要）は表の下にまとめる
+      const notes = [...k.ins, ...k.outs].filter(x => x.note && !x.subjects.includes(KURIKOSHI));
+      if (notes.length) {
+        r++;
+        ws.getCell(r, 2).value = '（内訳・摘要）'; r++;
+        for (const x of notes) {
+          ws.getCell(r, 2).value = x.item;
+          ws.mergeCells(r, 3, r, 6);
+          ws.getCell(r, 3).value = x.note;
+          ws.getCell(r, 3).alignment = { wrapText: true, vertical: 'top' };
+          r++;
+        }
+      }
+    } else {
+      const block = (title, list, col, sum) => {
+        ws.mergeCells(r, 1, r, 6); head(r, 1, title); boxed(r, 1, 6); r++;
+        head(r, 1, 'No'); head(r, 2, '項　目'); head(r, 3, '決算額'); ws.mergeCells(r, 4, r, 6); head(r, 4, '摘　要'); boxed(r, 1, 6); r++;
+        const start = r;
+        list.forEach((x, i) => {
+          ws.getCell(r, 1).value = i + 1;
+          ws.getCell(r, 2).value = x.item;
+          ws.getCell(r, 3).value = { formula: sumFormula(q, x.subjects, col), result: x.amount };
+          ws.mergeCells(r, 4, r, 6);
+          ws.getCell(r, 4).value = x.note || null;
+          ws.getCell(r, 4).alignment = { wrapText: true, vertical: 'top' };
+          money(ws.getCell(r, 3)); boxed(r, 1, 6);
+          r++;
+        });
+        ws.getCell(r, 2).value = '合　計';
+        ws.getCell(r, 3).value = { formula: list.length ? `SUM(C${start}:C${r - 1})` : '0', result: sum };
+        ws.getRow(r).font = { bold: true }; money(ws.getCell(r, 3)); boxed(r, 1, 6);
+        const cell = `C${r}`;
+        r += 2;
+        return cell;
+      };
+      inTotalCell = block('収　入　の　部', k.ins, 'D', k.sumIn);
+      outTotalCell = block('支　出　の　部', k.outs, 'E', k.sumOut);
+      r--;
+      ws.getCell(r, 2).value = `令和${reiwa(year) + 1}年度へ繰越額`;
+      ws.getCell(r, 3).value = { formula: `${inTotalCell}-${outTotalCell}`, result: k.sumIn - k.sumOut };
+      ws.getRow(r).font = { bold: true }; money(ws.getCell(r, 3)); boxed(r, 2, 3);
+      totals.push({ name: l.acc.fullName, cell: `C${r}`, value: k.sumIn - k.sumOut });
+      r++;
+    }
+
+    // 帳簿の合計と決算書の合計が合っているかの確認（Excel で新しい科目を足したときに気づけるように）
+    ws.getCell(r, 2).value = '確認（帳簿との差）';
+    ws.getCell(r, 2).font = { color: { argb: 'FF888888' }, size: 9 };
+    ws.mergeCells(r, 3, r, 6);
+    ws.getCell(r, 3).value = {
+      formula: `IF(AND(SUM(${q}!D:D)=${inTotalCell},SUM(${q}!E:E)=${outTotalCell}),"OK（帳簿と一致）","帳簿と合いません：決算書にない科目があります")`,
+      result: 'OK（帳簿と一致）',
+    };
+    ws.getCell(r, 3).font = { color: { argb: 'FF888888' }, size: 9 };
+    r += 3;
+  });
+
+  if (totals.length > 1) {
+    ws.getRow(r - 1).addPageBreak();
+    ws.mergeCells(r, 1, r, 6);
+    ws.getCell(r, 1).value = `令和${reiwa(year)}年度　会計別の繰越額（預金）`;
+    ws.getCell(r, 1).font = { bold: true, size: 14 };
+    r += 2;
+    head(r, 2, '会　計'); head(r, 3, '繰越額'); boxed(r, 2, 3); r++;
+    const start = r;
+    for (const t of totals) {
+      ws.getCell(r, 2).value = t.name;
+      ws.getCell(r, 3).value = { formula: t.cell, result: t.value };
+      money(ws.getCell(r, 3)); boxed(r, 2, 3); r++;
+    }
+    ws.getCell(r, 2).value = '合　計';
+    ws.getCell(r, 3).value = { formula: `SUM(C${start}:C${r - 1})`, result: totals.reduce((s, t) => s + t.value, 0) };
+    ws.getRow(r).font = { bold: true }; money(ws.getCell(r, 3)); boxed(r, 2, 3);
+  }
+}
+
 function cellText(v) {
   if (v == null) return '';
   if (typeof v === 'object') {
@@ -987,6 +1211,9 @@ function importMasters(ws) {
     if (subj && !subjectNames().includes(String(subj))) {
       state.subjects.push({ name: String(subj), type: cellText(row.getCell(2).value) === '収入' ? 'in' : 'out' });
     }
+    const item = cellText(row.getCell(3).value);
+    const target = subj && state.subjects.find(x => x.name === String(subj));
+    if (target && item) target.kessan = String(item);
     const person = cellText(row.getCell(4).value);
     if (person) addPerson(String(person), String(cellText(row.getCell(5).value) || ''));
     const partner = cellText(row.getCell(7).value);
@@ -1020,6 +1247,7 @@ function renderHelp(main) {
       <li>「💾 Excel・保存」→「Excel ファイルを作る」で、Excel ファイルができます（パソコンの「ダウンロード」フォルダに入ります）。</li>
       <li><b>月に1回は Excel に保存してください。</b>パソコンが壊れても Excel があれば元に戻せます。</li>
       <li>印刷は、帳簿画面の「🖨 印刷」か、Excel から行えます。</li>
+      <li>Excel の「決算書」シートは、総会資料の収支決算書の形になっています。摘要の文は Excel で自由に直せます。</li>
     </ul>
     <h3>⑥ 会計係を引き継ぐとき</h3>
     <ol>
