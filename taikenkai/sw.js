@@ -1,7 +1,7 @@
 // オフラインでも開けるように、アプリ本体（画面のファイル）だけを保存しておく仕組みです。
 // 精算データはここでは扱いません（ブラウザの localStorage に保存されています）。
 // アプリを更新したときは CACHE_NAME の数字を上げると確実に反映されます。
-const CACHE_NAME = 'taikenkai-app-v7';
+const CACHE_NAME = 'taikenkai-app-v8';
 const FILES = [
   './',
   './index.html',
