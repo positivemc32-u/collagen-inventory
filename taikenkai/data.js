@@ -412,6 +412,8 @@ function splitEven(amount, n) {
   return Array.from({ length: n }, (_, i) => sign * (base + (i < a - base * n ? 1 : 0)));
 }
 
+const OFFICE_ID = 'office';
+
 // 精算の計算
 //   マイナスのとき：足りない分を仲間で等分して負担し、各自の材料代・立替経費と相殺
 //   プラスのとき：残ったお金を仲間で等分して、各自の材料代・立替経費に足す
@@ -425,7 +427,10 @@ function settlementPlan(c, total, members) {
     const share = i < 0 ? 0 : parts[i];
     return { id: p.id, mat: p.mat, exp: p.exp, owed: p.total, share, net: p.total + share };
   }).filter((r) => r.owed || r.share || members.some((m) => m.id === r.id && m.share));
-  return { total, sharers: sharers.length, rows, cash: rows.reduce((s, r) => s + r.net, 0) };
+  const cash = rows.reduce((s, r) => s + r.net, 0);
+  // 会のお金で足りなかった分は営業所が立て替えた扱いにして、精算で営業所に返す
+  if (cash < 0) rows.push({ id: OFFICE_ID, mat: 0, exp: -cash, owed: -cash, share: 0, net: -cash });
+  return { total, sharers: sharers.length, rows, cash, office: cash < 0 ? -cash : 0 };
 }
 
 // 精算が必要か（マイナスが上限を超えたとき）
