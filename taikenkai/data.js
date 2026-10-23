@@ -1,0 +1,253 @@
+// =============================================================
+// data.js … データの保存・計算・バックアップ
+// データはこの端末のブラウザ（localStorage）の中だけに保存します。
+// =============================================================
+
+const STORAGE_KEY = 'taikenkai-db-v1';
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// 単価は「単価計算」Excel の一回分の合計から
+function defaultSettings() {
+  return {
+    members: [
+      { id: 'm_kura', name: '倉' },
+      { id: 'm_shintani', name: '新谷由起美AD' },
+      { id: 'm_tanaka', name: '田中博明AD' },
+      { id: 'm_other', name: 'その他' },
+    ],
+    materials: [
+      { id: 'mat_kiso', name: '基礎化粧品 一回分', price: 689 },
+      { id: 'mat_newkiso', name: '新基礎化粧品 一回分', price: 719 },
+      { id: 'mat_biyoeki', name: '美容液 一回分', price: 561 },
+      { id: 'mat_found', name: '【下地ファンデーション一回分】', price: 436 },
+      { id: 'mat_top', name: '【トップメイク一回分】', price: 410 },
+      { id: 'mat_parfum', name: 'パルファン 1回分（10プッシュ）', price: 40 },
+    ],
+    // チラシの体験メニュー
+    menus: [
+      { id: 'mn_full', name: 'セルフ天然素材のスキンケア＆メイク体験（アロマパック付き）', price: 1000 },
+      { id: 'mn_skin', name: 'セルフ天然素材のスキンケア体験', price: 500 },
+      { id: 'mn_make', name: 'セルフナチュラルメイク体験', price: 500 },
+      { id: 'mn_head', name: 'セルフヘッドケア', price: 300 },
+      { id: 'mn_aroma', name: 'アロマ占い（20分）', price: 1000 },
+      { id: 'mn_oral', name: 'セルフ口腔ケア', price: 300 },
+      { id: 'mn_op1', name: 'オプション：アロマパック', price: 100 },
+      { id: 'mn_op2', name: 'オプション：美肌クレイパック', price: 400 },
+      { id: 'mn_op3', name: 'オプション：潤いシートパック', price: 500 },
+      { id: 'mn_op4', name: 'オプション：タラソパック', price: 500 },
+      { id: 'mn_st_full', name: '小中高生：スキンケア＆メイク体験（アロマパック付き）', price: 600 },
+      { id: 'mn_st_skin', name: '小中高生：スキンケア体験', price: 300 },
+      { id: 'mn_st_make', name: '小中高生：ナチュラルメイク体験', price: 300 },
+      { id: 'mn_beauty', name: '美容体験（お茶とお菓子付き）', price: 500 },
+      { id: 'mn_beauty_st', name: '美容体験（高校生以下）', price: 300 },
+    ],
+    expenseItems: ['場所代', 'お茶・お菓子代', '印刷代', 'ブラシレンタル代', '消耗品（パフ・タオルなど）', '交通費'],
+    // 駐車場代の補助：2000円以上で100円、3000円以上で300円
+    parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
+    defaultVenue: '松雲堂',
+  };
+}
+
+function emptyDb() {
+  return { version: 1, settings: defaultSettings(), events: [], lastBackup: null, createdAt: new Date().toISOString() };
+}
+
+function loadDb() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return emptyDb();
+    return normalizeDb(JSON.parse(raw));
+  } catch (e) {
+    return emptyDb();
+  }
+}
+
+function normalizeDb(d) {
+  const base = emptyDb();
+  if (!d || typeof d !== 'object') return base;
+  const s = Object.assign(base.settings, d.settings || {});
+  s.parking = Object.assign(defaultSettings().parking, s.parking || {});
+  const events = Array.isArray(d.events) ? d.events.map(normalizeEvent) : [];
+  return { version: 1, settings: s, events, lastBackup: d.lastBackup || null, createdAt: d.createdAt || base.createdAt };
+}
+
+function normalizeEvent(e) {
+  return {
+    id: e.id || uid(),
+    date: e.date || todayStr(),
+    name: e.name || '体験会',
+    kind: e.kind || '体験会',
+    venue: e.venue || '',
+    memo: e.memo || '',
+    participants: (e.participants || []).map((p) => ({
+      id: p.id || uid(),
+      name: p.name || '',
+      items: (p.items || []).map((it) => ({ name: it.name || '', price: num(it.price) })),
+      extra: num(p.extra),
+      extraNote: p.extraNote || '',
+      parking: num(p.parking),
+      memo: p.memo || '',
+    })),
+    materials: (e.materials || []).map((m) => ({ id: m.id || uid(), name: m.name || '', price: num(m.price) })),
+    usage: e.usage && typeof e.usage === 'object' ? e.usage : {},
+    expenses: (e.expenses || []).map((x) => ({ id: x.id || uid(), name: x.name || '', amount: num(x.amount), paidBy: x.paidBy || '' })),
+  };
+}
+
+function saveDb(d) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+}
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function dateLabel(s) {
+  if (!s) return '';
+  const [y, m, d] = s.split('-').map(Number);
+  const w = '日月火水木金土'[new Date(y, m - 1, d).getDay()];
+  return `${y}年${m}月${d}日(${w})`;
+}
+
+function yen(n) {
+  return (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('ja-JP') + '円';
+}
+
+// 新しい会を作る（材料は設定からコピーするので、あとで単価を変えても過去の会は変わりません）
+function newEvent(settings, opts) {
+  return normalizeEvent({
+    id: uid(),
+    date: opts.date,
+    name: opts.name,
+    kind: opts.kind,
+    venue: opts.venue,
+    materials: settings.materials.map((m) => ({ ...m })),
+    expenses: (opts.expenses || []).map((x) => ({ ...x, id: uid() })),
+  });
+}
+
+function participantTotal(p) {
+  return p.items.reduce((s, it) => s + it.price, 0) + p.extra;
+}
+
+function suggestParking(settings, total) {
+  const r = settings.parking;
+  if (r.t2 && total >= r.t2) return r.a2;
+  if (r.t1 && total >= r.t1) return r.a1;
+  return 0;
+}
+
+function usageCount(ev, matId, memberId) {
+  return num(ev.usage[matId] && ev.usage[matId][memberId]);
+}
+
+function setUsage(ev, matId, memberId, n) {
+  if (!ev.usage[matId]) ev.usage[matId] = {};
+  ev.usage[matId][memberId] = Math.max(0, Math.floor(num(n)));
+}
+
+// 1つの会の精算
+function calcEvent(ev, members) {
+  const c = {
+    people: ev.participants.length,
+    sales: 0,
+    parking: 0,
+    material: 0,
+    expense: 0,
+    matByMember: {},
+    expByMember: {},
+    matRow: {},
+    balance: 0,
+  };
+  ev.participants.forEach((p) => {
+    c.sales += participantTotal(p);
+    c.parking += p.parking;
+  });
+  ev.materials.forEach((m) => {
+    let rowCount = 0;
+    Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
+      const n = usageCount(ev, m.id, mid);
+      rowCount += n;
+      c.matByMember[mid] = (c.matByMember[mid] || 0) + n * m.price;
+    });
+    c.matRow[m.id] = { count: rowCount, amount: rowCount * m.price };
+    c.material += rowCount * m.price;
+  });
+  ev.expenses.forEach((x) => {
+    c.expense += x.amount;
+    if (x.paidBy) c.expByMember[x.paidBy] = (c.expByMember[x.paidBy] || 0) + x.amount;
+  });
+  c.balance = c.sales - c.parking - c.material - c.expense;
+  return c;
+}
+
+// 返す相手ごとの金額（材料代＋立て替えた経費）
+function payouts(c, members) {
+  const ids = new Set([...members.map((m) => m.id), ...Object.keys(c.matByMember), ...Object.keys(c.expByMember)]);
+  return [...ids].map((id) => ({
+    id,
+    mat: c.matByMember[id] || 0,
+    exp: c.expByMember[id] || 0,
+    total: (c.matByMember[id] || 0) + (c.expByMember[id] || 0),
+  }));
+}
+
+// ---------- バックアップ ----------
+function exportJson(d) {
+  return JSON.stringify({ app: 'taikenkai', exportedAt: new Date().toISOString(), ...d }, null, 2);
+}
+
+function importJson(text) {
+  const d = JSON.parse(text);
+  if (!d || !Array.isArray(d.events) || !d.settings) throw new Error('体験会アプリのバックアップファイルではありません');
+  return normalizeDb(d);
+}
+
+function csvCell(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// Excel で見る用の CSV（会ごとの精算と明細）
+function exportCsv(d) {
+  const members = d.settings.members;
+  const mname = (id) => (members.find((m) => m.id === id) || {}).name || '（削除された人）';
+  const rows = [];
+  rows.push(['■ 会ごとの精算']);
+  rows.push(['日付', '会の名前', '種類', '会場', '参加人数', '売上', '駐車場返金', '材料返金', '経費', '残高', ...members.map((m) => m.name + 'へ返金')]);
+  const sorted = [...d.events].sort((a, b) => a.date.localeCompare(b.date));
+  let cum = 0;
+  sorted.forEach((ev) => {
+    const c = calcEvent(ev, members);
+    cum += c.balance;
+    const po = payouts(c, members);
+    rows.push([ev.date, ev.name, ev.kind, ev.venue, c.people, c.sales, c.parking, c.material, c.expense, c.balance,
+      ...members.map((m) => (po.find((p) => p.id === m.id) || {}).total || 0)]);
+  });
+  rows.push(['', '', '', '', '累計残高', '', '', '', '', cum]);
+  rows.push([]);
+  rows.push(['■ 明細']);
+  rows.push(['日付', '会の名前', '区分', '内容', '人', '数量', '単価', '金額']);
+  sorted.forEach((ev) => {
+    ev.participants.forEach((p) => {
+      p.items.forEach((it) => rows.push([ev.date, ev.name, '売上', it.name, p.name, 1, it.price, it.price]));
+      if (p.extra) rows.push([ev.date, ev.name, '売上', p.extraNote || 'その他', p.name, 1, p.extra, p.extra]);
+      if (p.parking) rows.push([ev.date, ev.name, '駐車場返金', '駐車場代補助', p.name, 1, p.parking, -p.parking]);
+    });
+    ev.materials.forEach((m) => {
+      Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
+        const n = usageCount(ev, m.id, mid);
+        if (n) rows.push([ev.date, ev.name, '材料返金', m.name, mname(mid), n, m.price, -n * m.price]);
+      });
+    });
+    ev.expenses.forEach((x) => rows.push([ev.date, ev.name, '経費', x.name, x.paidBy ? mname(x.paidBy) + '（立替）' : '', 1, x.amount, -x.amount]));
+  });
+  return '﻿' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n');
+}
