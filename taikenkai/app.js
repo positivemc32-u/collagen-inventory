@@ -47,7 +47,10 @@ function render() {
   });
   renderNotices();
   ({ events: renderEvents, event: renderEvent, summary: renderSummary, settings: renderSettings, backup: renderBackup })[state.tab]();
-  window.scrollTo(0, 0);
+  // 画面を切り替えたときだけ一番上に戻す
+  const view = state.tab + ':' + state.eventId;
+  if (view !== render.lastView) window.scrollTo(0, 0);
+  render.lastView = view;
 }
 
 function renderNotices() {
@@ -219,23 +222,15 @@ function renderEvent() {
 
     <section class="panel">
       <div class="panel-head"><h2>② 材料の使用量（返金）</h2><span data-calc="material"></span></div>
-      <p class="hint">材料を出した人の欄に、使った回数を入れてください。単価×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）×回数をその人に返金します。</p>
-      <div class="mat-wrap">
-        <table class="mat">
-          <thead><tr><th class="mname">材料（単価）</th>${ms.map((m) => `<th>${esc(m.name)}<small class="rate">${rateOf(ev, ms, m.id)}%</small></th>`).join('')}<th>計</th></tr></thead>
-          <tbody>
-            ${ev.materials.map((m) => `<tr>
-              <th class="mname">${esc(m.name)}<small>${yen(m.price)}</small></th>
-              ${ms.map((mb) => `<td data-label="${esc(mb.name)}（${rateOf(ev, ms, mb.id)}%）"><div class="stepper">
-                <button type="button" class="step" data-step="-1" data-mat="${m.id}" data-mem="${mb.id}" aria-label="減らす">−</button>
-                <input type="number" min="0" inputmode="numeric" class="cnt" data-mat="${m.id}" data-mem="${mb.id}" value="${usageCount(ev, m.id, mb.id) || ''}" placeholder="0">
-                <button type="button" class="step" data-step="1" data-mat="${m.id}" data-mem="${mb.id}" aria-label="増やす">＋</button>
-              </div><small class="unit">1回 ${yen(refundUnit(m.price, rateOf(ev, ms, mb.id)))}</small></td>`).join('')}
-              <td class="rowsum" data-label="計" data-calc="row-${m.id}"></td>
-            </tr>`).join('')}
-          </tbody>
-          <tfoot><tr><th class="mname">返金額</th>${ms.map((mb) => `<td data-label="${esc(mb.name)}" data-calc="mem-${mb.id}"></td>`).join('')}<td data-label="計" data-calc="material"></td></tr></tfoot>
-        </table>
+      <p class="hint">材料ごとに使った人数を入れてください。単価×人数×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）を返金します。
+        ふだんは「倉の物だけ」。ほかの人も出したときは「倉・新谷・田中で分ける」（倉が半分、残りの半分を新谷・田中で割る）を選んでください。</p>
+      <button type="button" class="btn small" data-act="fill-people">全部の材料に参加者数（${ev.participants.length}人）を入れる</button>
+      <div class="mats">
+        ${ev.materials.map((m) => matCardHtml(ev, m, ms)).join('')}
+      </div>
+      <div class="mat-total">
+        ${ms.map((mb) => `<div><span>${esc(mb.name)}</span><b data-calc="mem-${mb.id}"></b></div>`).join('')}
+        <div class="all"><span>材料の返金 計</span><b data-calc="material"></b></div>
       </div>
       <button type="button" class="btn small" data-act="edit-mats">材料・単価・返金の割合をこの会だけ変更</button>
     </section>
@@ -277,7 +272,14 @@ function refreshCalc() {
   set('sales', yen(c.sales));
   set('material', yen(c.material));
   set('expense', yen(c.expense));
-  ev.materials.forEach((m) => set('row-' + m.id, c.matRow[m.id].count ? `${c.matRow[m.id].count}回 ${yen(c.matRow[m.id].amount)}` : '—'));
+  ev.materials.forEach((m) => {
+    const row = c.matRow[m.id];
+    const el = document.querySelector(`[data-calc="brk-${m.id}"]`);
+    if (!el) return;
+    el.innerHTML = row.shares.length
+      ? row.shares.map((s) => `<span>${esc(memberName(s.mid))} ${peopleLabel(s.people)} × ${yen(m.price)} × ${rateOf(ev, ms, s.mid)}% ＝ <b>${yen(s.amount)}</b></span>`).join('') + `<span class="sum">計 ${yen(row.amount)}</span>`
+      : '<span class="none">使用なし</span>';
+  });
   ms.forEach((mb) => set('mem-' + mb.id, yen(c.matByMember[mb.id] || 0)));
 
   $('#evSummary').innerHTML = `
@@ -302,6 +304,36 @@ function refreshCalc() {
       <tbody>${po.map((p) => `<tr><th>${esc(memberName(p.id))}</th><td>${yen(p.mat)}</td><td>${yen(p.exp)}</td><td><b>${yen(p.total)}</b></td></tr>`).join('')}</tbody>
     </table>
     ${c.parking ? `<p class="hint">駐車場代の返金：${ev.participants.filter((p) => p.parking).map((p) => `${esc(p.name || '参加者')} ${yen(p.parking)}`).join('、')}</p>` : ''}`;
+}
+
+function stepperHtml(attrs, value, label) {
+  return `<div class="stepper">
+    <button type="button" class="step" data-step="-1" ${attrs} aria-label="${label}を減らす">−</button>
+    <input type="number" min="0" inputmode="numeric" class="cnt" ${attrs} value="${value || ''}" placeholder="0" aria-label="${label}">
+    <button type="button" class="step" data-step="1" ${attrs} aria-label="${label}を増やす">＋</button>
+  </div>`;
+}
+
+// 材料1つ分のカード（使用人数・誰の物か・内訳）
+function matCardHtml(ev, m, ms) {
+  const use = matUseOf(ev, m.id);
+  const manual = use.mode === 'manual';
+  return `<div class="mat-card">
+    <div class="mat-top">
+      <div class="mat-name">${esc(m.name)}<small>${yen(m.price)}</small></div>
+      ${manual ? '' : `<div class="mat-count"><span>使用人数</span>${stepperHtml(`data-mat="${m.id}"`, use.count, '使用人数')}</div>`}
+    </div>
+    <div class="seg small">
+      ${MAT_MODES.map((md) => `<label><input type="radio" name="mode_${m.id}" data-mode-mat="${m.id}" value="${md.id}"${md.id === use.mode ? ' checked' : ''}><span>${md.label}</span></label>`).join('')}
+    </div>
+    ${manual ? `<div class="manual-grid">${ms.map((mb) => `<div><span>${esc(mb.name)}（${rateOf(ev, ms, mb.id)}%）</span>
+      ${stepperHtml(`data-mat="${m.id}" data-mem="${mb.id}"`, usageCount(ev, m.id, mb.id), mb.name)}</div>`).join('')}</div>` : ''}
+    <div class="mat-brk" data-calc="brk-${m.id}"></div>
+  </div>`;
+}
+
+function peopleLabel(n) {
+  return `${Math.round(n * 100) / 100}人分`;
 }
 
 function openParticipant(p) {
@@ -639,9 +671,10 @@ document.addEventListener('click', async (e) => {
   const step = t.closest('[data-step]');
   if (step) {
     const { mat, mem } = step.dataset;
-    setUsage(ev, mat, mem, usageCount(ev, mat, mem) + num(step.dataset.step));
-    const input = document.querySelector(`input.cnt[data-mat="${mat}"][data-mem="${mem}"]`);
-    input.value = usageCount(ev, mat, mem) || '';
+    const input = step.parentElement.querySelector('input.cnt');
+    const next = Math.max(0, num(input.value) + num(step.dataset.step));
+    input.value = next || '';
+    setCount(ev, mat, mem, next);
     persist();
     refreshCalc();
     return;
@@ -694,6 +727,12 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'edit-mats': openMaterialsForm(); break;
+    case 'fill-people':
+      ev.materials.forEach((m) => { matUseOf(ev, m.id).count = ev.participants.length; });
+      persist();
+      render();
+      toast(`使用人数を${ev.participants.length}人にしました`);
+      break;
     case 'reset-settings':
       if (confirm('材料・メニュー・人・経費項目を最初の設定に戻します。会の記録は消えません。よろしいですか？')) {
         db.settings = defaultSettings();
@@ -715,13 +754,24 @@ document.addEventListener('click', async (e) => {
   }
 });
 
+// mem があれば「人ごとに入力」の回数、なければ使用人数
+function setCount(ev, mat, mem, n) {
+  if (mem) setUsage(ev, mat, mem, n);
+  else matUseOf(ev, mat).count = Math.max(0, Math.floor(num(n)));
+}
+
 // 材料の回数・経費の入力（その場で保存して金額を更新）
 main.addEventListener('input', (e) => {
   const ev = currentEvent();
   const el = e.target;
   if (!ev) return;
   if (el.classList.contains('cnt')) {
-    setUsage(ev, el.dataset.mat, el.dataset.mem, el.value);
+    setCount(ev, el.dataset.mat, el.dataset.mem, el.value);
+  } else if (el.dataset.modeMat) {
+    matUseOf(ev, el.dataset.modeMat).mode = el.value;
+    persist();
+    render();
+    return;
   } else if (el.dataset.exp) {
     const x = ev.expenses.find((y) => y.id === el.dataset.exp);
     x[el.dataset.f] = el.dataset.f === 'amount' ? num(el.value) : el.value;

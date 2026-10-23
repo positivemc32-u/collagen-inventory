@@ -107,6 +107,8 @@ function normalizeEvent(e, settings) {
     })),
     materials: (e.materials || []).map((m) => ({ id: m.id || uid(), name: m.name || '', price: num(m.price) })),
     usage: e.usage && typeof e.usage === 'object' ? e.usage : {},
+    // 材料ごとの使用人数と、誰の物を使ったか（mode）
+    matUse: e.matUse && typeof e.matUse === 'object' ? e.matUse : legacyMatUse(e.usage),
     // 会ごとの返金の割合（作成時の設定を記録）
     rates: e.rates && typeof e.rates === 'object' ? e.rates : memberRates(settings),
     expenses: (e.expenses || []).map((x) => ({ id: x.id || uid(), name: x.name || '', amount: num(x.amount), paidBy: x.paidBy || '' })),
@@ -145,6 +147,15 @@ function dateShort(s) {
 
 function yen(n) {
   return (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('ja-JP') + '円';
+}
+
+// 以前の版で人ごとに回数を入れていた材料は「人ごとに入力」のまま残す
+function legacyMatUse(usage) {
+  const r = {};
+  Object.keys(usage || {}).forEach((matId) => {
+    if (Object.values(usage[matId] || {}).some((n) => num(n) > 0)) r[matId] = { count: 0, mode: 'manual' };
+  });
+  return r;
 }
 
 function memberRates(settings) {
@@ -198,6 +209,39 @@ function refundUnit(price, rate) {
   return Math.round(price * rate / 100);
 }
 
+// 誰の物を使ったか
+//   kura   … 倉の物だけ
+//   split  … 倉が半分、残りの半分を新谷・田中で割る
+//   manual … 人ごとに回数を入力
+const MAT_MODES = [
+  { id: 'kura', label: '倉の物だけ', shares: { m_kura: 1 } },
+  { id: 'split', label: '倉・新谷・田中で分ける', shares: { m_kura: 0.5, m_shintani: 0.25, m_tanaka: 0.25 } },
+  { id: 'manual', label: '人ごとに入力' },
+];
+
+function matUseOf(ev, matId) {
+  if (!ev.matUse[matId]) ev.matUse[matId] = { count: 0, mode: 'kura' };
+  return ev.matUse[matId];
+}
+
+// 材料1つ分の、人ごとの返金（people は何人分か）
+function materialShares(ev, m, members) {
+  const use = matUseOf(ev, m.id);
+  if (use.mode === 'manual') {
+    return Object.keys(ev.usage[m.id] || {}).map((mid) => {
+      const n = usageCount(ev, m.id, mid);
+      return { mid, people: n, amount: n * refundUnit(m.price, rateOf(ev, members, mid)) };
+    }).filter((s) => s.people);
+  }
+  const shares = (MAT_MODES.find((x) => x.id === use.mode) || MAT_MODES[0]).shares;
+  const count = num(use.count);
+  if (!count) return [];
+  return Object.keys(shares).map((mid) => {
+    const people = count * shares[mid];
+    return { mid, people, amount: Math.round(m.price * rateOf(ev, members, mid) / 100 * people) };
+  });
+}
+
 // 1つの会の精算
 function calcEvent(ev, members) {
   const c = {
@@ -216,13 +260,11 @@ function calcEvent(ev, members) {
     c.parking += p.parking;
   });
   ev.materials.forEach((m) => {
-    const row = { count: 0, amount: 0 };
-    Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
-      const n = usageCount(ev, m.id, mid);
-      const amt = n * refundUnit(m.price, rateOf(ev, members, mid));
-      row.count += n;
-      row.amount += amt;
-      c.matByMember[mid] = (c.matByMember[mid] || 0) + amt;
+    const row = { count: 0, amount: 0, shares: materialShares(ev, m, members) };
+    row.shares.forEach((s) => {
+      row.count += s.people;
+      row.amount += s.amount;
+      c.matByMember[s.mid] = (c.matByMember[s.mid] || 0) + s.amount;
     });
     c.matRow[m.id] = row;
     c.material += row.amount;
@@ -289,11 +331,9 @@ function exportCsv(d) {
       if (p.parking) rows.push([ev.date, ev.name, '駐車場返金', '駐車場代補助', p.name, 1, p.parking, -p.parking]);
     });
     ev.materials.forEach((m) => {
-      Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
-        const n = usageCount(ev, m.id, mid);
-        const rate = rateOf(ev, members, mid);
-        const unit = refundUnit(m.price, rate);
-        if (n) rows.push([ev.date, ev.name, '材料返金', `${m.name}（${m.price}円の${rate}%）`, mname(mid), n, unit, -n * unit]);
+      materialShares(ev, m, members).forEach((s) => {
+        const rate = rateOf(ev, members, s.mid);
+        rows.push([ev.date, ev.name, '材料返金', `${m.name}（${m.price}円の${rate}%）`, mname(s.mid), s.people, refundUnit(m.price, rate), -s.amount]);
       });
     });
     ev.expenses.forEach((x) => rows.push([ev.date, ev.name, '経費', x.name, x.paidBy ? mname(x.paidBy) + '（立替）' : '', 1, x.amount, -x.amount]));
