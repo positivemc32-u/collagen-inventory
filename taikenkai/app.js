@@ -18,6 +18,7 @@ function esc(s) {
 }
 function persist() { saveDb(db); }
 function members() { return db.settings.members; }
+function menus() { return db.settings.menus; }
 function memberName(id) {
   if (!id) return '会のお金から';
   return (members().find((m) => m.id === id) || {}).name || '（削除された人）';
@@ -68,7 +69,7 @@ function renderEvents() {
   // 古い順に足して累計残高を出す
   const cum = {};
   let run = 0;
-  [...list].reverse().forEach((ev) => { run += calcEvent(ev, members()).balance; cum[ev.id] = run; });
+  [...list].reverse().forEach((ev) => { run += calcEvent(ev, members(), menus()).balance; cum[ev.id] = run; });
 
   main.innerHTML = `
     <div class="total-card">
@@ -79,7 +80,7 @@ function renderEvents() {
     ${list.length ? '' : '<p class="empty">まだ会がありません。「＋ 新しい会を作る」から始めてください。</p>'}
     <div class="cards">
       ${list.map((ev) => {
-        const c = calcEvent(ev, members());
+        const c = calcEvent(ev, members(), menus());
         return `<button type="button" class="card event-card" data-open="${ev.id}">
           <div class="event-head">
             <span class="date">${esc(dateLabel(ev.date))}</span>
@@ -222,9 +223,9 @@ function renderEvent() {
 
     <section class="panel">
       <div class="panel-head"><h2>② 材料の使用量（返金）</h2><span data-calc="material"></span></div>
-      <p class="hint">材料ごとに使った人数を入れてください。単価×人数×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）を返金します。
+      <p class="hint">使用人数は、参加者が選んだ体験メニューから自動で数えます（例：アロマ占いだけの人は数えません）。違うときは −／＋ で直せます。
+        単価×人数×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）を返金します。
         ふだんは「倉の物だけ」。ほかの人も出したときは「倉・新谷・田中で分ける」（倉が半分、残りの半分を新谷・田中で割る）を選んでください。</p>
-      <button type="button" class="btn small" data-act="fill-people">全部の材料に参加者数（${ev.participants.length}人）を入れる</button>
       <div class="mats">
         ${ev.materials.map((m) => matCardHtml(ev, m, ms)).join('')}
       </div>
@@ -267,12 +268,19 @@ function refreshCalc() {
   const ev = currentEvent();
   if (!ev) return;
   const ms = members();
-  const c = calcEvent(ev, ms);
+  const c = calcEvent(ev, ms, menus());
   const set = (key, text) => document.querySelectorAll(`[data-calc="${key}"]`).forEach((el) => { el.textContent = text; });
   set('sales', yen(c.sales));
   set('material', yen(c.material));
   set('expense', yen(c.expense));
   ev.materials.forEach((m) => {
+    const auto = document.querySelector(`[data-calc="auto-${m.id}"]`);
+    if (auto) {
+      const n = autoCount(ev, m.id, menus());
+      auto.innerHTML = matUseOf(ev, m.id).count == null
+        ? `参加者のメニューから自動（${n}人）`
+        : `<span class="manual">手で変更しています</span> <button type="button" class="link" data-auto-mat="${m.id}">自動に戻す（${n}人）</button>`;
+    }
     const row = c.matRow[m.id];
     const el = document.querySelector(`[data-calc="brk-${m.id}"]`);
     if (!el) return;
@@ -321,8 +329,9 @@ function matCardHtml(ev, m, ms) {
   return `<div class="mat-card">
     <div class="mat-top">
       <div class="mat-name">${esc(m.name)}<small>${yen(m.price)}</small></div>
-      ${manual ? '' : `<div class="mat-count"><span>使用人数</span>${stepperHtml(`data-mat="${m.id}"`, use.count, '使用人数')}</div>`}
+      ${manual ? '' : `<div class="mat-count"><span>使用人数</span>${stepperHtml(`data-mat="${m.id}"`, useCount(ev, m.id, menus()), '使用人数')}</div>`}
     </div>
+    ${manual ? '' : `<div class="mat-auto" data-calc="auto-${m.id}"></div>`}
     <div class="seg small">
       ${MAT_MODES.map((md) => `<label><input type="radio" name="mode_${m.id}" data-mode-mat="${m.id}" value="${md.id}"${md.id === use.mode ? ' checked' : ''}><span>${md.label}</span></label>`).join('')}
     </div>
@@ -393,7 +402,9 @@ function openParticipant(p) {
     const f = new FormData(form);
     const vals = {
       name: f.get('name').trim(),
-      items: [...form.querySelectorAll('input[name=menu]:checked')].map((el) => ({ name: el.dataset.name, price: num(el.dataset.price) })),
+      items: [...form.querySelectorAll('input[name=menu]:checked')].map((el) => ({
+        menuId: el.value.startsWith('old') ? '' : el.value, name: el.dataset.name, price: num(el.dataset.price),
+      })),
       extra: num(f.get('extra')),
       extraNote: f.get('extraNote').trim(),
       parking: num(f.get('parking')),
@@ -458,6 +469,10 @@ function memRowHtml(m) {
   </div>`;
 }
 
+function menuRowHtml(m) {
+  return `${matRowHtml(m)}<div class="menu-mats">${db.settings.materials.map((mt) => `<label><input type="checkbox" value="${esc(mt.id)}"${(m.mats || []).includes(mt.id) ? ' checked' : ''}>${esc(mt.name)}</label>`).join('')}</div>`;
+}
+
 function matRowHtml(m) {
   return `<div class="edit-row" data-id="${esc(m.id)}">
     <input name="n" value="${esc(m.name)}" placeholder="材料名">
@@ -475,7 +490,7 @@ function renderSummary() {
   const perMember = {};
   let cum = 0;
   const rows = list.map((ev) => {
-    const c = calcEvent(ev, ms);
+    const c = calcEvent(ev, ms, menus());
     Object.keys(tot).forEach((k) => { tot[k] += c[k]; });
     payouts(c, ms).forEach((p) => {
       const t = perMember[p.id] || (perMember[p.id] = { mat: 0, exp: 0, total: 0 });
@@ -531,7 +546,8 @@ function renderSettings() {
       </section>
       <section class="panel">
         <h2>体験メニューと料金</h2>
-        <div id="menuRows">${s.menus.map((m) => matRowHtml(m)).join('')}</div>
+        <p class="hint">メニューごとに、使う材料にチェックを付けてください。チェックした材料だけ使用人数に数えます。</p>
+        <div id="menuRows">${s.menus.map((m) => menuRowHtml(m)).join('')}</div>
         <button type="button" class="btn small" data-add-row="menu">＋ メニューを追加</button>
       </section>
       <section class="panel">
@@ -555,14 +571,19 @@ function renderSettings() {
   const form = $('#setForm');
   form.onclick = (e) => {
     const del = e.target.closest('[data-del-row]');
-    if (del) del.closest('.edit-row').remove();
+    if (del) {
+      const row = del.closest('.edit-row');
+      if (row.nextElementSibling && row.nextElementSibling.classList.contains('menu-mats')) row.nextElementSibling.remove();
+      row.remove();
+    }
     const add = e.target.closest('[data-add-row]');
     if (add) {
       const k = add.dataset.addRow;
       const simple = `<div class="edit-row" data-id="${uid()}"><input name="n" placeholder="名前"><button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button></div>`;
       const box = { mem: '#memRows', mat: '#setMatRows', menu: '#menuRows', exp: '#expRows' }[k];
       const html = { mem: () => memRowHtml({ id: uid(), name: '', rate: 80 }), exp: () => simple }[k];
-      $(box).insertAdjacentHTML('beforeend', html ? html() : matRowHtml({ id: uid(), name: '', price: 0 }));
+      const blank = { id: uid(), name: '', price: 0, mats: [] };
+      $(box).insertAdjacentHTML('beforeend', html ? html() : k === 'menu' ? menuRowHtml(blank) : matRowHtml(blank));
       $(box).lastElementChild.querySelector('input').focus();
     }
   };
@@ -576,7 +597,9 @@ function renderSettings() {
       .map((r) => ({ id: r.dataset.id, name: r.querySelector('[name=n]').value.trim(), rate: num(r.querySelector('[name=r]').value) }))
       .filter((m) => m.name);
     s.materials = priced('#setMatRows');
-    s.menus = priced('#menuRows');
+    s.menus = priced('#menuRows').map((m) => ({
+      ...m, mats: [...document.querySelectorAll(`#menuRows .edit-row[data-id="${CSS.escape(m.id)}"] + .menu-mats input:checked`)].map((i) => i.value),
+    }));
     s.expenseItems = [...document.querySelectorAll('#expRows input')].map((i) => i.value.trim()).filter(Boolean);
     s.parking = { t1: num(f.get('t1')), a1: num(f.get('a1')), t2: num(f.get('t2')), a2: num(f.get('a2')) };
     s.defaultVenue = f.get('venue').trim();
@@ -679,6 +702,13 @@ document.addEventListener('click', async (e) => {
     refreshCalc();
     return;
   }
+  const autoMat = t.closest('[data-auto-mat]');
+  if (autoMat) {
+    matUseOf(ev, autoMat.dataset.autoMat).count = null;
+    persist();
+    render();
+    return;
+  }
   const addExp = t.closest('[data-add-exp]');
   if (addExp) {
     ev.expenses.push({ id: uid(), name: addExp.dataset.addExp, amount: 0, paidBy: '' });
@@ -727,12 +757,6 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'edit-mats': openMaterialsForm(); break;
-    case 'fill-people':
-      ev.materials.forEach((m) => { matUseOf(ev, m.id).count = ev.participants.length; });
-      persist();
-      render();
-      toast(`使用人数を${ev.participants.length}人にしました`);
-      break;
     case 'reset-settings':
       if (confirm('材料・メニュー・人・経費項目を最初の設定に戻します。会の記録は消えません。よろしいですか？')) {
         db.settings = defaultSettings();
