@@ -156,36 +156,32 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .pamt { grid-area: amt; font-weight: 700; text-align: right; align-self: center; padding-left: 10px; }
 .pamt small { display: block; font-size: .75rem; color: var(--primary); }
 
-/* 材料の表：パソコンでは表、スマホでは材料ごとのカード */
-.mat-wrap { overflow-x: auto; }
-table.mat { width: 100%; border-collapse: collapse; }
-table.mat th, table.mat td { border-bottom: 1px solid var(--line); padding: 6px; text-align: center; font-size: .9rem; }
-table.mat thead th { font-size: .8rem; color: var(--muted); }
-table.mat th.mname { text-align: left; }
-table.mat th.mname small { display: block; }
-table.mat tfoot td, table.mat tfoot th { font-weight: 800; color: var(--navy); border-bottom: 0; }
-.rowsum { white-space: nowrap; font-size: .8rem !important; color: var(--muted); }
+/* 材料のカード */
 .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--card); }
 .stepper .step { border: 0; background: var(--bg); width: 34px; min-height: 38px; font-size: 1.1rem; cursor: pointer; color: var(--text); }
 .stepper .step:active { background: var(--primary-soft); }
 .stepper input { border: 0; border-radius: 0; width: 44px; min-height: 38px; text-align: center; padding: 4px; -moz-appearance: textfield; }
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-
-@media (max-width: 759px) {
-  table.mat thead { display: none; }
-  table.mat, table.mat tbody, table.mat tfoot { display: block; }
-  table.mat tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-  table.mat th, table.mat td { border: 0; padding: 0; }
-  table.mat th.mname { grid-column: 1 / -1; font-size: 1rem; }
-  table.mat th.mname small { display: inline; margin-left: 8px; }
-  table.mat td { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
-  table.mat td::before { content: attr(data-label); font-size: .75rem; color: var(--muted); font-weight: 700; }
-  table.mat td .stepper { width: 100%; }
-  table.mat td .stepper input { flex: 1; }
-  table.mat .rowsum { grid-column: 1 / -1; flex-direction: row; gap: 8px; align-items: baseline; }
-  table.mat tfoot tr { background: var(--accent-soft); border-radius: 10px; padding: 10px; border: 0; margin-top: 8px; }
-  table.mat tfoot td { flex-direction: row; justify-content: space-between; width: 100%; align-items: baseline; }
-}
+.mats { display: grid; gap: 10px; margin: 10px 0; }
+@media (min-width: 760px) { .mats { grid-template-columns: 1fr 1fr; } }
+.mat-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); }
+.mat-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mat-name { font-weight: 800; }
+.mat-name small { margin-left: 6px; }
+.mat-count { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; color: var(--muted); }
+.seg.small { margin: 8px 0 4px; }
+.seg.small span { font-size: .78rem; padding: 7px 4px; line-height: 1.3; background: var(--card); }
+.manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 6px; }
+.manual-grid > div { display: flex; flex-direction: column; font-size: .75rem; font-weight: 700; color: var(--muted); }
+.manual-grid .stepper { width: 100%; }
+.manual-grid .stepper input { flex: 1; }
+.mat-brk { display: flex; flex-direction: column; gap: 1px; font-size: .8rem; color: var(--muted); margin-top: 6px; }
+.mat-brk b { color: var(--text); }
+.mat-brk .sum { text-align: right; font-weight: 800; color: var(--navy); }
+.mat-total { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.mat-total > div { display: flex; justify-content: space-between; font-size: .9rem; }
+.mat-total .all { grid-column: 1 / -1; font-weight: 800; color: var(--navy); border-top: 1px solid var(--line); padding-top: 4px; }
+@media (min-width: 760px) { .mat-total { grid-template-columns: repeat(4, 1fr); } }
 
 .exp-list { display: grid; gap: 8px; margin: 6px 0 10px; }
 .exp-row { display: grid; grid-template-columns: 1fr 110px 40px; grid-template-areas: "name amt del" "who who del"; gap: 6px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
@@ -290,9 +286,18 @@ table.grid tfoot th { font-weight: 800; color: var(--navy); }
 .cal-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: .85rem; }
 
 /* 返金の割合 */
-table.mat thead small.rate { display: block; color: var(--primary); font-weight: 800; }
-table.mat td small.unit { display: block; font-size: .72rem; margin-top: 2px; }
 .pct { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; font-weight: 700; }
 .pct input { width: 70px; text-align: right; }
 .rate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-bottom: 8px; }
 .rate-grid label { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: .9rem; font-weight: 700; }
+
+/* 使用人数の自動・手動 */
+.mat-auto { font-size: .78rem; color: var(--muted); text-align: right; margin-top: 2px; }
+.mat-auto .manual { color: var(--primary); font-weight: 700; }
+.mat-auto .link { font-size: .78rem; }
+/* 設定：メニューで使う材料 */
+.menu-mats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -2px 0 12px; padding: 0 4px 10px; border-bottom: 1px dashed var(--line); font-size: .78rem; color: var(--muted); }
+.menu-mats label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.menu-mats input { width: 16px; height: 16px; min-height: 0; margin: 0; }
+.rate-cost { font-size: .78rem; color: var(--muted); margin: -2px 0 10px 4px; }
+.rate-cost b { color: var(--navy); }

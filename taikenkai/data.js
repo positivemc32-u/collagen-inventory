@@ -23,10 +23,16 @@ function defaultSettings() {
       { id: 'mat_biyoeki', name: '美容液 一回分', price: 561 },
       { id: 'mat_found', name: '【下地ファンデーション一回分】', price: 436 },
       { id: 'mat_top', name: '【トップメイク一回分】', price: 410 },
-      { id: 'mat_parfum', name: 'パルファン 1回分（10プッシュ）', price: 40 },
+      { id: 'mat_parfum', name: 'パルファン 1人分', price: 10 },
+      { id: 'mat_aromapack', name: 'アロマパック 1回分', price: 100 },
+      { id: 'mat_clay', name: '美肌クレイパック 1回分', price: 400 },
+      { id: 'mat_thalasso', name: 'タラソパック 1回分', price: 500 },
+      { id: 'mat_ginseng', name: 'ジンセントニック 1回分（ヘッドケア）', price: 72 },
+      { id: 'mat_rb', name: 'RB 1回分（ヘッドケア）', price: 141 },
+      { id: 'mat_milky', name: 'ミルキーアイドル 1回分（ハンドケア）', price: 407 },
     ],
-    // チラシの体験メニュー
-    menus: [
+    // チラシの体験メニュー（mats：そのメニューで使う材料。設定で変えられます）
+    menus: withMenuMats([
       { id: 'mn_full', name: 'セルフ天然素材のスキンケア＆メイク体験（アロマパック付き）', price: 1000 },
       { id: 'mn_skin', name: 'セルフ天然素材のスキンケア体験', price: 500 },
       { id: 'mn_make', name: 'セルフナチュラルメイク体験', price: 500 },
@@ -43,13 +49,37 @@ function defaultSettings() {
       { id: 'mn_st_make', name: '小中高生：ナチュラルメイク体験', price: 300 },
       { id: 'mn_beauty', name: '美容体験（お茶とお菓子付き）', price: 500 },
       { id: 'mn_beauty_st', name: '美容体験（高校生以下）', price: 300 },
-    ],
+    ]),
     expenseItems: ['場所代', 'お茶・お菓子代', '印刷代', 'ブラシレンタル代', '消耗品（パフ・タオルなど）', '交通費'],
     // 駐車場代の補助：2000円以上で100円、3000円以上で300円
     parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
     defaultVenue: '松雲堂',
-    rev: 3,
+    rev: 5,
   };
+}
+
+// メニューごとに使う材料（アロマ占い・口腔ケアなどは材料を使わない）
+const SKIN_MATS = ['mat_kiso', 'mat_biyoeki', 'mat_parfum'];
+const MAKE_MATS = ['mat_found', 'mat_top', 'mat_parfum'];
+const FULL_MATS = ['mat_kiso', 'mat_biyoeki', 'mat_found', 'mat_top', 'mat_parfum', 'mat_aromapack'];
+const MENU_MATS = {
+  mn_full: FULL_MATS,
+  mn_skin: SKIN_MATS,
+  mn_make: MAKE_MATS,
+  mn_head: ['mat_ginseng', 'mat_rb'],
+  mn_hand: ['mat_milky'],
+  mn_op1: ['mat_aromapack'],
+  mn_op2: ['mat_clay'],
+  mn_op4: ['mat_thalasso'],
+  mn_st_full: FULL_MATS,
+  mn_st_skin: SKIN_MATS,
+  mn_st_make: MAKE_MATS,
+  mn_beauty: SKIN_MATS,
+  mn_beauty_st: SKIN_MATS,
+};
+
+function withMenuMats(menus) {
+  return menus.map((m) => ({ ...m, mats: m.mats || [...(MENU_MATS[m.id] || [])] }));
 }
 
 function emptyDb() {
@@ -84,8 +114,38 @@ function normalizeDb(d) {
     s.members.forEach((m) => { if (m.rate == null) m.rate = m.id === 'm_kura' ? 50 : 80; });
     s.rev = 3;
   }
-  const events = Array.isArray(d.events) ? d.events.map((e) => normalizeEvent(e, s)) : [];
+  // パルファンを1人10円に、パック3種を材料に、メニューに使う材料を足す
+  const upgrade4 = s.rev < 4;
+  if (upgrade4) {
+    s.materials = upgradeMaterials(s.materials);
+    s.menus = withMenuMats(s.menus);
+    s.rev = 4;
+  }
+  // ヘッドケア（ジンセントニック・RB）とハンドケア（ミルキーアイドル）の材料を足す
+  const upgrade5 = s.rev < 5;
+  if (upgrade5) {
+    s.materials = upgradeMaterials(s.materials);
+    s.menus.forEach((m) => {
+      if ((m.id === 'mn_head' || m.id === 'mn_hand') && !(m.mats || []).length) m.mats = [...MENU_MATS[m.id]];
+    });
+    s.rev = 5;
+  }
+  const events = Array.isArray(d.events) ? d.events.map((e) => {
+    const ev = normalizeEvent(e, s);
+    if (upgrade4 || upgrade5) ev.materials = upgradeMaterials(ev.materials);
+    if (upgrade4) {
+      // 使用人数は参加者のメニューから自動で数える
+      Object.values(ev.matUse).forEach((u) => { u.count = null; });
+    }
+    return ev;
+  }) : [];
   return { version: 1, settings: s, events, lastBackup: d.lastBackup || null, createdAt: d.createdAt || base.createdAt };
+}
+
+function upgradeMaterials(list) {
+  const out = list.map((m) => (m.id === 'mat_parfum' ? { ...m, name: 'パルファン 1人分', price: 10 } : m));
+  defaultSettings().materials.forEach((m) => { if (!out.some((x) => x.id === m.id)) out.push({ ...m }); });
+  return out;
 }
 
 function normalizeEvent(e, settings) {
@@ -99,7 +159,7 @@ function normalizeEvent(e, settings) {
     participants: (e.participants || []).map((p) => ({
       id: p.id || uid(),
       name: p.name || '',
-      items: (p.items || []).map((it) => ({ name: it.name || '', price: num(it.price) })),
+      items: (p.items || []).map((it) => ({ menuId: it.menuId || '', name: it.name || '', price: num(it.price) })),
       extra: num(p.extra),
       extraNote: p.extraNote || '',
       parking: num(p.parking),
@@ -107,6 +167,8 @@ function normalizeEvent(e, settings) {
     })),
     materials: (e.materials || []).map((m) => ({ id: m.id || uid(), name: m.name || '', price: num(m.price) })),
     usage: e.usage && typeof e.usage === 'object' ? e.usage : {},
+    // 材料ごとの使用人数と、誰の物を使ったか（mode）
+    matUse: e.matUse && typeof e.matUse === 'object' ? e.matUse : legacyMatUse(e.usage),
     // 会ごとの返金の割合（作成時の設定を記録）
     rates: e.rates && typeof e.rates === 'object' ? e.rates : memberRates(settings),
     expenses: (e.expenses || []).map((x) => ({ id: x.id || uid(), name: x.name || '', amount: num(x.amount), paidBy: x.paidBy || '' })),
@@ -145,6 +207,15 @@ function dateShort(s) {
 
 function yen(n) {
   return (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('ja-JP') + '円';
+}
+
+// 以前の版で人ごとに回数を入れていた材料は「人ごとに入力」のまま残す
+function legacyMatUse(usage) {
+  const r = {};
+  Object.keys(usage || {}).forEach((matId) => {
+    if (Object.values(usage[matId] || {}).some((n) => num(n) > 0)) r[matId] = { count: 0, mode: 'manual' };
+  });
+  return r;
 }
 
 function memberRates(settings) {
@@ -198,8 +269,60 @@ function refundUnit(price, rate) {
   return Math.round(price * rate / 100);
 }
 
+// 誰の物を使ったか
+//   kura   … 倉の物だけ
+//   split  … 倉が半分、残りの半分を新谷・田中で割る
+//   manual … 人ごとに回数を入力
+const MAT_MODES = [
+  { id: 'kura', label: '倉の物だけ', shares: { m_kura: 1 } },
+  { id: 'split', label: '倉・新谷・田中で分ける', shares: { m_kura: 0.5, m_shintani: 0.25, m_tanaka: 0.25 } },
+  { id: 'manual', label: '人ごとに入力' },
+];
+
+// count が null のときは参加者のメニューから自動で数える（手で直すと数字が入る）
+function matUseOf(ev, matId) {
+  if (!ev.matUse[matId]) ev.matUse[matId] = { count: null, mode: 'kura' };
+  return ev.matUse[matId];
+}
+
+// 参加者が選んだメニュー（設定のメニュー表と ID か名前で照合）
+function itemMenu(it, menus) {
+  return menus.find((m) => (it.menuId && m.id === it.menuId)) || menus.find((m) => m.name === it.name);
+}
+
+// その材料を使うメニューを選んだ参加者の人数（1人で2つ選んでも1人と数える）
+function autoCount(ev, matId, menus) {
+  return ev.participants.filter((p) => p.items.some((it) => {
+    const mn = itemMenu(it, menus);
+    return mn && (mn.mats || []).includes(matId);
+  })).length;
+}
+
+function useCount(ev, matId, menus) {
+  const u = matUseOf(ev, matId);
+  return u.count == null ? autoCount(ev, matId, menus) : num(u.count);
+}
+
+// 材料1つ分の、人ごとの返金（people は何人分か）
+function materialShares(ev, m, members, menus) {
+  const use = matUseOf(ev, m.id);
+  if (use.mode === 'manual') {
+    return Object.keys(ev.usage[m.id] || {}).map((mid) => {
+      const n = usageCount(ev, m.id, mid);
+      return { mid, people: n, amount: n * refundUnit(m.price, rateOf(ev, members, mid)) };
+    }).filter((s) => s.people);
+  }
+  const shares = (MAT_MODES.find((x) => x.id === use.mode) || MAT_MODES[0]).shares;
+  const count = useCount(ev, m.id, menus);
+  if (!count) return [];
+  return Object.keys(shares).map((mid) => {
+    const people = count * shares[mid];
+    return { mid, people, amount: Math.round(m.price * rateOf(ev, members, mid) / 100 * people) };
+  });
+}
+
 // 1つの会の精算
-function calcEvent(ev, members) {
+function calcEvent(ev, members, menus) {
   const c = {
     people: ev.participants.length,
     sales: 0,
@@ -216,13 +339,11 @@ function calcEvent(ev, members) {
     c.parking += p.parking;
   });
   ev.materials.forEach((m) => {
-    const row = { count: 0, amount: 0 };
-    Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
-      const n = usageCount(ev, m.id, mid);
-      const amt = n * refundUnit(m.price, rateOf(ev, members, mid));
-      row.count += n;
-      row.amount += amt;
-      c.matByMember[mid] = (c.matByMember[mid] || 0) + amt;
+    const row = { count: 0, amount: 0, shares: materialShares(ev, m, members, menus) };
+    row.shares.forEach((s) => {
+      row.count += s.people;
+      row.amount += s.amount;
+      c.matByMember[s.mid] = (c.matByMember[s.mid] || 0) + s.amount;
     });
     c.matRow[m.id] = row;
     c.material += row.amount;
@@ -272,7 +393,7 @@ function exportCsv(d) {
   const sorted = [...d.events].sort((a, b) => a.date.localeCompare(b.date));
   let cum = 0;
   sorted.forEach((ev) => {
-    const c = calcEvent(ev, members);
+    const c = calcEvent(ev, members, d.settings.menus);
     cum += c.balance;
     const po = payouts(c, members);
     rows.push([ev.date, ev.name, ev.kind, ev.venue, c.people, c.sales, c.parking, c.material, c.expense, c.balance,
@@ -289,11 +410,9 @@ function exportCsv(d) {
       if (p.parking) rows.push([ev.date, ev.name, '駐車場返金', '駐車場代補助', p.name, 1, p.parking, -p.parking]);
     });
     ev.materials.forEach((m) => {
-      Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
-        const n = usageCount(ev, m.id, mid);
-        const rate = rateOf(ev, members, mid);
-        const unit = refundUnit(m.price, rate);
-        if (n) rows.push([ev.date, ev.name, '材料返金', `${m.name}（${m.price}円の${rate}%）`, mname(mid), n, unit, -n * unit]);
+      materialShares(ev, m, members, d.settings.menus).forEach((s) => {
+        const rate = rateOf(ev, members, s.mid);
+        rows.push([ev.date, ev.name, '材料返金', `${m.name}（${m.price}円の${rate}%）`, mname(s.mid), s.people, refundUnit(m.price, rate), -s.amount]);
       });
     });
     ev.expenses.forEach((x) => rows.push([ev.date, ev.name, '経費', x.name, x.paidBy ? mname(x.paidBy) + '（立替）' : '', 1, x.amount, -x.amount]));
