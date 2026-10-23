@@ -30,6 +30,7 @@ function defaultSettings() {
       { id: 'mn_skin', name: 'セルフ天然素材のスキンケア体験', price: 500 },
       { id: 'mn_make', name: 'セルフナチュラルメイク体験', price: 500 },
       { id: 'mn_head', name: 'セルフヘッドケア', price: 300 },
+      { id: 'mn_hand', name: 'ハンドケア', price: 500 },
       { id: 'mn_aroma', name: 'アロマ占い（20分）', price: 1000 },
       { id: 'mn_oral', name: 'セルフ口腔ケア', price: 300 },
       { id: 'mn_op1', name: 'オプション：アロマパック', price: 100 },
@@ -46,6 +47,7 @@ function defaultSettings() {
     // 駐車場代の補助：2000円以上で100円、3000円以上で300円
     parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
     defaultVenue: '松雲堂',
+    rev: 2,
   };
 }
 
@@ -68,6 +70,14 @@ function normalizeDb(d) {
   if (!d || typeof d !== 'object') return base;
   const s = Object.assign(base.settings, d.settings || {});
   s.parking = Object.assign(defaultSettings().parking, s.parking || {});
+  // 前の版を使っていた人にも、あとから増えたメニューを足す
+  if ((d.settings && d.settings.rev || 1) < 2) {
+    if (!s.menus.some((m) => m.id === 'mn_hand')) {
+      const i = s.menus.findIndex((m) => m.id === 'mn_head');
+      s.menus.splice(i < 0 ? s.menus.length : i + 1, 0, { id: 'mn_hand', name: 'ハンドケア', price: 500 });
+    }
+    s.rev = 2;
+  }
   const events = Array.isArray(d.events) ? d.events.map(normalizeEvent) : [];
   return { version: 1, settings: s, events, lastBackup: d.lastBackup || null, createdAt: d.createdAt || base.createdAt };
 }
@@ -112,8 +122,17 @@ function todayStr() {
 function dateLabel(s) {
   if (!s) return '';
   const [y, m, d] = s.split('-').map(Number);
-  const w = '日月火水木金土'[new Date(y, m - 1, d).getDay()];
+  const w = WEEK[new Date(y, m - 1, d).getDay()];
   return `${y}年${m}月${d}日(${w})`;
+}
+
+const WEEK = '日月火水木金土';
+
+// 2026/10/25(日) のような短い表示
+function dateShort(s) {
+  if (!s) return '';
+  const [y, m, d] = s.split('-').map(Number);
+  return `${y}/${m}/${d}(${WEEK[new Date(y, m - 1, d).getDay()]})`;
 }
 
 function yen(n) {
