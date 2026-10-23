@@ -469,6 +469,13 @@ function memRowHtml(m) {
   </div>`;
 }
 
+// 1回分の原材料費を、人ごとの返金の割合で
+function rateCostHtml(m) {
+  const groups = {};
+  members().forEach((mb) => { (groups[mb.rate] = groups[mb.rate] || []).push(mb.name); });
+  return `<div class="rate-cost">${Object.keys(groups).sort((x, y) => x - y).map((r) => `${esc(groups[r].join('・'))} ${r}%：<b>${yen(refundUnit(m.price, num(r)))}</b>`).join('　')}</div>`;
+}
+
 function menuRowHtml(m) {
   return `${matRowHtml(m)}<div class="menu-mats">${db.settings.materials.map((mt) => `<label><input type="checkbox" value="${esc(mt.id)}"${(m.mats || []).includes(mt.id) ? ' checked' : ''}>${esc(mt.name)}</label>`).join('')}</div>`;
 }
@@ -541,7 +548,8 @@ function renderSettings() {
       </section>
       <section class="panel">
         <h2>材料と単価（一回分）</h2>
-        <div id="setMatRows">${s.materials.map((m) => matRowHtml(m)).join('')}</div>
+        <p class="hint">右の小さい数字は、返金の割合をかけた原材料費（1回分）です。</p>
+        <div id="setMatRows">${s.materials.map((m) => matRowHtml(m) + rateCostHtml(m)).join('')}</div>
         <button type="button" class="btn small" data-add-row="mat">＋ 材料を追加</button>
       </section>
       <section class="panel">
@@ -573,7 +581,8 @@ function renderSettings() {
     const del = e.target.closest('[data-del-row]');
     if (del) {
       const row = del.closest('.edit-row');
-      if (row.nextElementSibling && row.nextElementSibling.classList.contains('menu-mats')) row.nextElementSibling.remove();
+      const next = row.nextElementSibling;
+      if (next && (next.classList.contains('menu-mats') || next.classList.contains('rate-cost'))) next.remove();
       row.remove();
     }
     const add = e.target.closest('[data-add-row]');

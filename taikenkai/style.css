@@ -299,3 +299,5 @@ table.grid tfoot th { font-weight: 800; color: var(--navy); }
 .menu-mats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -2px 0 12px; padding: 0 4px 10px; border-bottom: 1px dashed var(--line); font-size: .78rem; color: var(--muted); }
 .menu-mats label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .menu-mats input { width: 16px; height: 16px; min-height: 0; margin: 0; }
+.rate-cost { font-size: .78rem; color: var(--muted); margin: -2px 0 10px 4px; }
+.rate-cost b { color: var(--navy); }

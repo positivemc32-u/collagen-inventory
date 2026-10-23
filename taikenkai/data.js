@@ -27,6 +27,9 @@ function defaultSettings() {
       { id: 'mat_aromapack', name: 'アロマパック 1回分', price: 100 },
       { id: 'mat_clay', name: '美肌クレイパック 1回分', price: 400 },
       { id: 'mat_thalasso', name: 'タラソパック 1回分', price: 500 },
+      { id: 'mat_ginseng', name: 'ジンセントニック 1回分（ヘッドケア）', price: 72 },
+      { id: 'mat_rb', name: 'RB 1回分（ヘッドケア）', price: 141 },
+      { id: 'mat_milky', name: 'ミルキーアイドル 1回分（ハンドケア）', price: 407 },
     ],
     // チラシの体験メニュー（mats：そのメニューで使う材料。設定で変えられます）
     menus: withMenuMats([
@@ -51,11 +54,11 @@ function defaultSettings() {
     // 駐車場代の補助：2000円以上で100円、3000円以上で300円
     parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
     defaultVenue: '松雲堂',
-    rev: 4,
+    rev: 5,
   };
 }
 
-// メニューごとに使う材料（アロマ占い・ヘッドケアなどは材料を使わない）
+// メニューごとに使う材料（アロマ占い・口腔ケアなどは材料を使わない）
 const SKIN_MATS = ['mat_kiso', 'mat_biyoeki', 'mat_parfum'];
 const MAKE_MATS = ['mat_found', 'mat_top', 'mat_parfum'];
 const FULL_MATS = ['mat_kiso', 'mat_biyoeki', 'mat_found', 'mat_top', 'mat_parfum', 'mat_aromapack'];
@@ -63,6 +66,8 @@ const MENU_MATS = {
   mn_full: FULL_MATS,
   mn_skin: SKIN_MATS,
   mn_make: MAKE_MATS,
+  mn_head: ['mat_ginseng', 'mat_rb'],
+  mn_hand: ['mat_milky'],
   mn_op1: ['mat_aromapack'],
   mn_op2: ['mat_clay'],
   mn_op4: ['mat_thalasso'],
@@ -116,10 +121,19 @@ function normalizeDb(d) {
     s.menus = withMenuMats(s.menus);
     s.rev = 4;
   }
+  // ヘッドケア（ジンセントニック・RB）とハンドケア（ミルキーアイドル）の材料を足す
+  const upgrade5 = s.rev < 5;
+  if (upgrade5) {
+    s.materials = upgradeMaterials(s.materials);
+    s.menus.forEach((m) => {
+      if ((m.id === 'mn_head' || m.id === 'mn_hand') && !(m.mats || []).length) m.mats = [...MENU_MATS[m.id]];
+    });
+    s.rev = 5;
+  }
   const events = Array.isArray(d.events) ? d.events.map((e) => {
     const ev = normalizeEvent(e, s);
+    if (upgrade4 || upgrade5) ev.materials = upgradeMaterials(ev.materials);
     if (upgrade4) {
-      ev.materials = upgradeMaterials(ev.materials);
       // 使用人数は参加者のメニューから自動で数える
       Object.values(ev.matUse).forEach((u) => { u.count = null; });
     }
