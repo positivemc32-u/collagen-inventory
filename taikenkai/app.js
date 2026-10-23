@@ -21,6 +21,7 @@ function members() { return db.settings.members; }
 function menus() { return db.settings.menus; }
 function memberName(id) {
   if (!id) return '会のお金から';
+  if (id === OFFICE_ID) return '営業所（立替分）';
   return (members().find((m) => m.id === id) || {}).name || '（削除された人）';
 }
 function currentEvent() { return db.events.find((e) => e.id === state.eventId); }
@@ -383,8 +384,9 @@ function settleHtml(ev, c, ch, ms) {
 function cashFlowHtml(ev, c, ch, plan) {
   const poolExp = ev.expenses.filter((x) => !x.paidBy).reduce((s, x) => s + x.amount, 0);
   const collect = plan.rows.filter((r) => r.net < 0).reduce((s, r) => s - r.net, 0);
-  const hand = plan.rows.filter((r) => r.net > 0).reduce((s, r) => s + r.net, 0);
-  const after = plan.cash + collect - hand;
+  const hand = plan.rows.filter((r) => r.net > 0 && r.id !== OFFICE_ID).reduce((s, r) => s + r.net, 0);
+  // 足りなかった分は営業所が立て替えたので、手元は 0円 から
+  const after = (plan.office ? 0 : plan.cash) + collect - hand - plan.office;
   return `<div class="cash-flow">
     <h3>会のお金の流れ</h3>
     <table class="result">
@@ -392,13 +394,17 @@ function cashFlowHtml(ev, c, ch, plan) {
       <tr><th>＋ 売上</th><td>${yen(c.sales)}</td></tr>
       <tr><th>− 駐車場代の返金</th><td>−${yen(c.parking)}</td></tr>
       <tr><th>− 会のお金から払った経費</th><td>−${yen(poolExp)}</td></tr>
-      <tr class="sub"><th>＝ いま手元にあるお金</th><td class="${plan.cash < 0 ? 'minus' : ''}">${signedYen(plan.cash)}</td></tr>
+      ${plan.office
+        ? `<tr class="sub"><th>＝ 足りなかった分（営業所の立替分）</th><td>${yen(plan.office)}</td></tr>`
+        : `<tr class="sub"><th>＝ いま手元にあるお金</th><td>${signedYen(plan.cash)}</td></tr>`}
+      ${plan.office ? '<tr><th>手元のお金</th><td>0円</td></tr>' : ''}
       <tr><th>＋ 「払う」人から受け取る</th><td>+${yen(collect)}</td></tr>
       <tr><th>− 「もらう」人に渡す</th><td>−${yen(hand)}</td></tr>
+      ${plan.office ? `<tr><th>− 営業所に返す（立替分）</th><td>−${yen(plan.office)}</td></tr>` : ''}
       <tr class="bal"><th>＝ 精算のあと</th><td>${signedYen(after)}</td></tr>
     </table>
-    ${plan.cash < 0 ? `<p class="note">⚠️ 「会のお金から払った経費」${yen(poolExp)} が、手元にあったお金より ${yen(-plan.cash)} 多くなっています。
-      実際にはだれかが自分のお金で払っていた場合は、③ 経費でその経費の「立て替えた人」を選んでください（その人の「もらう」に入ります）。</p>` : ''}
+    ${plan.office ? `<p class="note">「会のお金から払った経費」${yen(poolExp)} のうち、会のお金で足りなかった <b>${yen(plan.office)}</b> は <b>営業所の立替分</b> として、精算のときに営業所に返します。
+      個人が立て替えていた場合は、③ 経費でその経費の「立て替えた人」を選んでください。</p>` : ''}
     <p class="hint">端数の1円は上の人から順に割り振っています。</p>
   </div>`;
 }
@@ -411,7 +417,7 @@ function personTable(rows, total, n) {
     <tbody>${rows.map((r) => `<tr class="${r.net > 0 ? 'get' : r.net < 0 ? 'pay' : ''}">
       <th class="l">${esc(memberName(r.id))}</th>
       <td>${yen(r.mat)}</td><td>${yen(r.exp)}</td>
-      <td>${r.share ? signedYen(r.share) : (n && total ? '対象外' : '—')}</td>
+      <td>${r.id === OFFICE_ID ? '—' : r.share ? signedYen(r.share) : (n && total ? '対象外' : '—')}</td>
       <td class="net">${r.net > 0 ? `もらう<br>${yen(r.net)}` : r.net < 0 ? `払う<br>${yen(-r.net)}` : 'なし'}</td>
     </tr>`).join('')}</tbody>
     <tfoot><tr><th class="l">計</th><th>${yen(rows.reduce((s, r) => s + r.mat, 0))}</th><th>${yen(rows.reduce((s, r) => s + r.exp, 0))}</th>
