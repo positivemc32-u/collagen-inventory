@@ -308,17 +308,21 @@ table.grid tfoot th { font-weight: 800; color: var(--navy); }
 .badge.settled { background: var(--accent-soft); color: var(--accent); margin-left: auto; }
 .note { background: var(--warn-soft); border-radius: 10px; padding: 8px 12px; font-size: .9rem; }
 .settled-box { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-size: .92rem; }
-.person-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
-@media (min-width: 760px) { .person-cards { grid-template-columns: repeat(4, 1fr); } }
-.person { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--bg); font-size: .82rem; }
-.person .pname { font-weight: 800; font-size: .95rem; margin-bottom: 4px; }
-.person .pline { display: flex; justify-content: space-between; gap: 4px; color: var(--muted); }
-.person .pline span:last-child { white-space: nowrap; }
-.person .pnet { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); text-align: right; font-weight: 700; }
-.person .pnet b { font-size: 1.15rem; }
-.person.get { border-color: var(--accent); }
-.person.get .pnet { color: var(--accent); }
-.person.pay { border-color: var(--danger); }
-.person.pay .pnet { color: var(--danger); }
+.status { border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-size: .92rem; }
+.status.need { background: var(--danger-soft); color: var(--danger); }
+.status.carry { background: var(--accent-soft); }
+.badge.need { background: var(--danger-soft); color: var(--danger); margin-left: auto; }
+.settle-anyway { margin-top: 8px; }
+.settle-anyway summary { cursor: pointer; color: var(--primary); font-weight: 700; font-size: .9rem; padding: 6px 0; }
+table.settle-table { min-width: 0; font-size: .8rem; }
+table.settle-table th, table.settle-table td { padding: 6px 3px; }
+table.settle-table th.l { white-space: normal; word-break: break-all; }
+table.settle-table td.net { font-size: .88rem; line-height: 1.25; }
+@media (min-width: 760px) { table.settle-table { font-size: .92rem; } table.settle-table th, table.settle-table td { padding: 8px 8px; } }
+table.settle-table td.net { font-weight: 800; }
+table.settle-table tr.get td.net { color: var(--accent); }
+table.settle-table tr.pay td.net { color: var(--danger); }
+table.settle-table tbody tr { cursor: default; }
+table.settle-table tbody tr:hover { background: none; }
 label.share { display: inline-flex; align-items: center; gap: 3px; font-size: .8rem; font-weight: 700; white-space: nowrap; }
 label.share input { width: 18px; height: 18px; min-height: 0; margin: 0; }
