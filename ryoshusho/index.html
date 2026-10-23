@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3a6ea5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="領収書">
+  <meta name="robots" content="noindex, nofollow">
+  <title>領収書</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row">
+      <h1 id="pageTitle">領収書を作る</h1>
+      <span class="page-hint" id="pageHint"></span>
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <button type="button" data-tab="create" class="active"><span class="ico">🧾</span><span>作成</span></button>
+    <button type="button" data-tab="history"><span class="ico">📚</span><span>履歴</span></button>
+    <button type="button" data-tab="settings"><span class="ico">⚙️</span><span>設定</span></button>
+  </nav>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="data.js"></script>
+  <script src="receipt.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
