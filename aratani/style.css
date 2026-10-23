@@ -155,3 +155,4 @@ table.ledger { border-collapse: collapse; width: 100%; background: #fff; }
 }
 .print-only { display: none; }
 @media print { .print-only { display: block !important; } }
+.steps li { margin-bottom: 12px; }

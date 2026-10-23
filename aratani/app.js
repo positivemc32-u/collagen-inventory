@@ -251,6 +251,7 @@ function render() {
   renderNotices();
   const main = $('#main');
   if (ui.tab === 'ledger') renderLedger(main);
+  else if (ui.tab === 'photo') renderPhoto(main);
   else if (ui.tab === 'summary') renderSummary(main);
   else if (ui.tab === 'master') renderMaster(main);
   else if (ui.tab === 'excel') renderExcel(main);
@@ -527,6 +528,151 @@ function carryOver(account, fromYear) {
   else state.entries.push({ id: 'e' + state.seq, seq: state.seq++, account, year: toYear, ...data });
   save();
   toast(`${yenAlways(amount)}円を繰り越しました`);
+}
+
+/* ---------- 📷 写真から（Claude の読み取り結果を貼り付ける） ---------- */
+function claudePrompt() {
+  const ins = state.subjects.filter(x => x.type === 'in').map(x => x.name).join('、');
+  const outs = state.subjects.filter(x => x.type === 'out').map(x => x.name).join('、');
+  return `荒谷町の会計帳簿をつけています。送る写真（領収書・レシート・通帳など）を読み取って、帳簿に書く形にしてください。
+
+【出し方】
+・1件を1行にして、次の6つをカンマ（,）で区切って出してください。表や説明は不要です。
+  日付,科目,摘要,収入金額,支払金額,備考
+・日付は 2025/4/28 の形にしてください。
+・金額は数字だけにしてください（カンマや「円」は付けない）。
+・入ってきたお金は収入金額、出ていったお金は支払金額に入れ、もう一方は 0 にしてください。
+・科目は次の中から一番近いものを選んでください。
+  収入：${ins}
+  支出：${outs}
+・摘要には、お店・取引先・人の名前や内容を短く書いてください（例：北陸電力、4月水道料）。
+・通帳の写真のときは、1行ずつ全部出してください。残高の列は不要です。
+・読み取れない所や自信がない所は、備考に「要確認」と書いてください。
+
+【例】
+2025/4/28,賃付,NTT西日本,825,0,
+2025/5/25,公租公課,固定資産税,0,8400,
+2025/6/3,事務費,コメリ（封筒・切手）,0,1280,要確認`;
+}
+
+function parsePasted(text, year) {
+  const rows = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim().replace(/^```.*$/, '');
+    if (!line || /^[|\s:-]+$/.test(line) || /^\|?\s*(日付|年月日)/.test(line)) continue;
+    let cols;
+    if (line.includes('|')) cols = line.split('|').map(c => c.trim()).filter((c, i, a) => !(c === '' && (i === 0 || i === a.length - 1)));
+    else if (line.includes('\t')) cols = line.split('\t');
+    else cols = line.split(/[,，]/);
+    cols = cols.map(c => c.trim());
+    let date = parseDateCell(cols[0]);
+    if (!date) {
+      const m = (cols[0] || '').replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).match(/^(\d{1,2})\s*[\/月.]\s*(\d{1,2})/);
+      if (m) {
+        const mo = Number(m[1]), d = Number(m[2]);
+        const y = (mo > 3 || (mo === 3 && d >= 21)) ? year : year + 1;
+        date = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+    }
+    const income = toNum(cols[3]);
+    const expense = toNum(cols[4]);
+    const row = { date, subject: cols[1] || '', tekiyo: cols[2] || '', income, expense, note: cols[5] || '', problems: [] };
+    if (!date) row.problems.push('日付が読めません');
+    if (!income && !expense) row.problems.push('金額がありません');
+    if (income && expense) row.problems.push('収入と支払の両方に金額があります');
+    rows.push(row);
+  }
+  return rows;
+}
+
+function renderPhoto(main) {
+  const acc = accountById(ui.account);
+  const rows = ui.pasted || [];
+  const dup = r => r.date && state.entries.some(e => e.account === acc.id && e.date === r.date
+    && (e.income || 0) === r.income && (e.expense || 0) === r.expense);
+  main.innerHTML = `
+    <div class="card">
+      <h2>📷 写真・スクショから帳簿に書き込む</h2>
+      <p class="hint">Claude（AI）を使える人向けです。使わない場合は「📒 帳簿」から手で書き込んでください。</p>
+      <ol class="steps">
+        <li><b>iPhone の Claude に写真を送ります。</b><br>
+          お願い文をいっしょに送ってください（下のボタンでコピーできます）。
+          <div class="row" style="margin-top:6px"><button class="btn" id="btnCopyPrompt">📋 お願い文をコピー</button>
+          <button class="btn small" id="btnShowPrompt">お願い文を見る</button></div>
+          <textarea id="promptText" readonly hidden>${esc(claudePrompt())}</textarea></li>
+        <li><b>Claude の答えを、このパソコンに送ります。</b><br>
+          答えを長押し →「コピー」→ LINE やメールで自分に送ります。</li>
+        <li><b>答えを下の枠に貼り付けて「読み取る」を押します。</b></li>
+      </ol>
+    </div>
+    <div class="card">
+      ${bookSelectorHTML()}
+      <textarea id="pasteBox" placeholder="ここに Claude の答えを貼り付け（右クリック →「貼り付け」）" style="margin-top:10px">${esc(ui.pastedText || '')}</textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="btnParse">読み取る</button>
+        <button class="btn" id="btnPasteClear">枠を空にする</button>
+      </div>
+    </div>
+    ${rows.length ? `<div class="card">
+      <h2>${yearLabel(ui.year)}　${esc(acc.fullName)} に書き込む内容</h2>
+      <p class="hint">チェックの付いた行が書き込まれます。科目はここで選び直せます。金額などは、書き込んだあと帳簿の画面で直せます。</p>
+      <div class="table-wrap"><table class="ledger">
+        <thead><tr><th>✔</th><th>年月日</th><th>科目</th><th>摘要</th><th>収入金額</th><th>支払金額</th><th>備考・注意</th></tr></thead>
+        <tbody>${rows.map((r, i) => {
+          const isDup = dup(r);
+          const bad = r.problems.length > 0;
+          const known = subjectNames().includes(r.subject);
+          return `<tr${bad ? ' class="editing"' : ''}>
+            <td class="stamp"><input type="checkbox" data-take="${i}"${!bad && !isDup ? ' checked' : ''}${bad ? ' disabled' : ''}></td>
+            <td class="date">${r.date ? shortDate(r.date) : '？'}</td>
+            <td><select data-subj="${i}">${known ? '' : `<option value="${esc(r.subject)}" selected>${esc(r.subject || '（なし）')} ⚠</option>`}
+              ${subjectGroups().map(g => `<optgroup label="${g.label}">${g.items.map(n => `<option value="${esc(n)}"${n === r.subject ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('')}
+            </select></td>
+            <td>${esc(r.tekiyo)}</td>
+            <td class="num in">${yen(r.income)}</td>
+            <td class="num out">${yen(r.expense)}</td>
+            <td>${esc(r.note)}${[...r.problems, ...(isDup ? ['同じ日・同じ金額がもう帳簿にあります'] : []), ...(!known && r.subject ? ['科目が一覧にありません'] : [])]
+              .map(t => `<div class="diff-ng">⚠ ${t}</div>`).join('')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="btnTake">チェックした行を帳簿に書き込む</button></div>
+    </div>` : ''}`;
+
+  bindBookSelector();
+  $('#btnShowPrompt').addEventListener('click', () => { const t = $('#promptText'); t.hidden = !t.hidden; t.style.minHeight = '320px'; });
+  $('#btnCopyPrompt').addEventListener('click', async () => {
+    const text = claudePrompt();
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) {
+      const t = $('#promptText'); t.hidden = false; t.select(); document.execCommand('copy');
+    }
+    toast('お願い文をコピーしました');
+  });
+  $('#btnParse').addEventListener('click', () => {
+    ui.pastedText = $('#pasteBox').value;
+    ui.pasted = parsePasted(ui.pastedText, ui.year);
+    if (!ui.pasted.length) toast('読み取れる行がありませんでした');
+    renderPhoto(main);
+  });
+  $('#btnPasteClear').addEventListener('click', () => { ui.pastedText = ''; ui.pasted = []; renderPhoto(main); });
+  main.querySelectorAll('[data-subj]').forEach(sel => sel.addEventListener('change', () => {
+    ui.pasted[Number(sel.dataset.subj)].subject = sel.value;
+  }));
+  $('#btnTake')?.addEventListener('click', () => {
+    const picked = [...main.querySelectorAll('[data-take]:checked')].map(c => ui.pasted[Number(c.dataset.take)]);
+    if (!picked.length) return toast('チェックした行がありません');
+    for (const r of picked) {
+      state.entries.push({ id: 'e' + state.seq, seq: state.seq++, account: acc.id, year: ui.year,
+        date: r.date, subject: r.subject, tekiyo: r.tekiyo, income: r.income, expense: r.expense, note: r.note, checked: false });
+    }
+    save();
+    ui.pasted = []; ui.pastedText = '';
+    toast(`${picked.length}行を書き込みました`);
+    ui.tab = 'ledger';
+    document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('active', x.dataset.tab === 'ledger'));
+    render();
+  });
 }
 
 /* ---------- 📊 集計 ---------- */
@@ -1226,38 +1372,35 @@ function importMasters(ws) {
 /* ---------- ❓ 使い方 ---------- */
 function renderHelp(main) {
   main.innerHTML = `<div class="card help">
-    <h2>使い方（1ページ）</h2>
-    <h3>① 帳簿に書き込む</h3>
+    <h2>使い方</h2>
+    <h3>📒 書き込む</h3>
     <ol>
-      <li>「📒 帳簿」を押し、<b>会計</b>と<b>年度</b>を選びます。</li>
-      <li>年月日を選び、<b>科目</b>と<b>摘要</b>を ▼ から選びます。<br>
-        一覧にないときは、▼ の一番下の「✏ 手で入力する」を選ぶと、自由に打てます。</li>
-      <li>収入なら「収入金額」、支払なら「支払金額」に数字だけ入れます（カンマ・円は不要）。</li>
-      <li>「書き込む」を押します。<b>差引残高は自動で計算</b>されます。</li>
-      <li>前の行と同じ科目なら「〃 前の行と同じ」を押すと、科目と摘要が入ります。</li>
+      <li>会計と年度を選ぶ</li>
+      <li>日付・科目・摘要を選ぶ（一覧にないときは「✏ 手で入力する」）</li>
+      <li>金額を入れて「書き込む」を押す。残高は自動で計算されます</li>
     </ol>
-    <h3>② まちがえたとき</h3>
-    <p>表の行をクリックすると上の入力欄に出てきます。直して「直した内容で保存」を押します。消すときは「この行を消す」。</p>
-    <h3>③ 通帳と合わせる</h3>
-    <p>帳簿の下の「通帳の残高」に通帳の数字を入れて「確かめる」を押すと、合っているか、いくらずれているかが出ます。</p>
-    <h3>④ 年度が終わったら</h3>
-    <p>帳簿の下の「○○年度へ繰り越す」を押すと、残高が次の年度の「前年度繰越金」になります。会計ごとに押してください。</p>
-    <h3>⑤ Excel に保存する・印刷する（大切）</h3>
-    <ul>
-      <li>「💾 Excel・保存」→「Excel ファイルを作る」で、Excel ファイルができます（パソコンの「ダウンロード」フォルダに入ります）。</li>
-      <li><b>月に1回は Excel に保存してください。</b>パソコンが壊れても Excel があれば元に戻せます。</li>
-      <li>印刷は、帳簿画面の「🖨 印刷」か、Excel から行えます。</li>
-      <li>Excel の「決算書」シートは、総会資料の収支決算書の形になっています。摘要の文は Excel で自由に直せます。</li>
-    </ul>
-    <h3>⑥ 会計係を引き継ぐとき</h3>
+    <p>まちがえたら、表の行を押すと直せます。</p>
+
+    <h3>📷 写真から書き込む（Claude を使う人だけ）</h3>
     <ol>
-      <li>「Excel ファイルを作る」で<b>すべての年度</b>を選んで Excel を作り、次の方に渡します（印刷したものも一緒に）。</li>
-      <li>次の方は、Excel だけで続けても、このアプリで「Excel から読み込む」をして続けても大丈夫です。</li>
-      <li>Excel でも科目・摘要は ▼ で選べて、手で打つこともできます。残高は自動計算です。</li>
+      <li>iPhone の Claude に、写真と「お願い文」を送る</li>
+      <li>Claude の答えをコピーして、LINE やメールでパソコンに送る</li>
+      <li>「📷 写真から」に貼り付けて「読み取る」→「帳簿に書き込む」</li>
     </ol>
-    <h3>⑦ 一覧（候補）を増やす・減らす</h3>
-    <p>「📝 候補の登録」で、科目・人名・取引先・よく使う摘要を追加したり消したりできます。人名はまとめて貼り付けて登録できます。
-    最初から手で打ちたい方は、同じ画面の「入力のしかた」で「最初から手で打つ」を選んでください。</p>
+
+    <h3>🏦 通帳と合わせる</h3>
+    <p>帳簿の下に通帳の残高を入れて「確かめる」。合っていれば ✅ が出ます。</p>
+
+    <h3>💾 保存する（月に1回）</h3>
+    <p>「💾 Excel・保存」→「Excel ファイルを作る」。<br>
+    Excel には帳簿と<b>決算書</b>が入っています。印刷も Excel からできます。</p>
+
+    <h3>📅 年度が終わったら</h3>
+    <p>帳簿の下の「○○年度へ繰り越す」を、会計ごとに押します。</p>
+
+    <h3>🤝 引き継ぐとき</h3>
+    <p>「すべての年度」で Excel を作って、印刷したものと一緒に渡します。<br>
+    次の方は Excel だけでも、このアプリでも続けられます。</p>
   </div>`;
 }
 
