@@ -288,3 +288,11 @@ table.grid tfoot th { font-weight: 800; color: var(--navy); }
 .cal-grid button.sel { background: var(--primary); color: #fff; font-weight: 800; }
 .cal-grid button.sel::after { background: #fff; }
 .cal-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: .85rem; }
+
+/* 返金の割合 */
+table.mat thead small.rate { display: block; color: var(--primary); font-weight: 800; }
+table.mat td small.unit { display: block; font-size: .72rem; margin-top: 2px; }
+.pct { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; font-weight: 700; }
+.pct input { width: 70px; text-align: right; }
+.rate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-bottom: 8px; }
+.rate-grid label { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: .9rem; font-weight: 700; }

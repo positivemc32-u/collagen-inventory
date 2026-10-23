@@ -11,10 +11,11 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 function defaultSettings() {
   return {
     members: [
-      { id: 'm_kura', name: '倉' },
-      { id: 'm_shintani', name: '新谷由起美AD' },
-      { id: 'm_tanaka', name: '田中博明AD' },
-      { id: 'm_other', name: 'その他' },
+      // rate：材料の単価の何％を返金するか
+      { id: 'm_kura', name: '倉', rate: 50 },
+      { id: 'm_shintani', name: '新谷由起美AD', rate: 80 },
+      { id: 'm_tanaka', name: '田中博明AD', rate: 80 },
+      { id: 'm_other', name: 'その他', rate: 80 },
     ],
     materials: [
       { id: 'mat_kiso', name: '基礎化粧品 一回分', price: 689 },
@@ -47,7 +48,7 @@ function defaultSettings() {
     // 駐車場代の補助：2000円以上で100円、3000円以上で300円
     parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
     defaultVenue: '松雲堂',
-    rev: 2,
+    rev: 3,
   };
 }
 
@@ -78,11 +79,16 @@ function normalizeDb(d) {
     }
     s.rev = 2;
   }
-  const events = Array.isArray(d.events) ? d.events.map(normalizeEvent) : [];
+  // 返金の割合（倉は50％、ほかは80％）を足す
+  if (s.rev < 3) {
+    s.members.forEach((m) => { if (m.rate == null) m.rate = m.id === 'm_kura' ? 50 : 80; });
+    s.rev = 3;
+  }
+  const events = Array.isArray(d.events) ? d.events.map((e) => normalizeEvent(e, s)) : [];
   return { version: 1, settings: s, events, lastBackup: d.lastBackup || null, createdAt: d.createdAt || base.createdAt };
 }
 
-function normalizeEvent(e) {
+function normalizeEvent(e, settings) {
   return {
     id: e.id || uid(),
     date: e.date || todayStr(),
@@ -101,6 +107,8 @@ function normalizeEvent(e) {
     })),
     materials: (e.materials || []).map((m) => ({ id: m.id || uid(), name: m.name || '', price: num(m.price) })),
     usage: e.usage && typeof e.usage === 'object' ? e.usage : {},
+    // 会ごとの返金の割合（作成時の設定を記録）
+    rates: e.rates && typeof e.rates === 'object' ? e.rates : memberRates(settings),
     expenses: (e.expenses || []).map((x) => ({ id: x.id || uid(), name: x.name || '', amount: num(x.amount), paidBy: x.paidBy || '' })),
   };
 }
@@ -139,6 +147,12 @@ function yen(n) {
   return (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('ja-JP') + '円';
 }
 
+function memberRates(settings) {
+  const r = {};
+  (settings ? settings.members : []).forEach((m) => { r[m.id] = num(m.rate == null ? 100 : m.rate); });
+  return r;
+}
+
 // 新しい会を作る（材料は設定からコピーするので、あとで単価を変えても過去の会は変わりません）
 function newEvent(settings, opts) {
   return normalizeEvent({
@@ -149,7 +163,7 @@ function newEvent(settings, opts) {
     venue: opts.venue,
     materials: settings.materials.map((m) => ({ ...m })),
     expenses: (opts.expenses || []).map((x) => ({ ...x, id: uid() })),
-  });
+  }, settings);
 }
 
 function participantTotal(p) {
@@ -172,6 +186,18 @@ function setUsage(ev, matId, memberId, n) {
   ev.usage[matId][memberId] = Math.max(0, Math.floor(num(n)));
 }
 
+// その会での、その人への返金の割合（％）
+function rateOf(ev, members, memberId) {
+  if (ev.rates[memberId] != null) return num(ev.rates[memberId]);
+  const m = members.find((x) => x.id === memberId);
+  return m && m.rate != null ? num(m.rate) : 100;
+}
+
+// 1回分の返金額（1円未満は四捨五入）
+function refundUnit(price, rate) {
+  return Math.round(price * rate / 100);
+}
+
 // 1つの会の精算
 function calcEvent(ev, members) {
   const c = {
@@ -190,14 +216,16 @@ function calcEvent(ev, members) {
     c.parking += p.parking;
   });
   ev.materials.forEach((m) => {
-    let rowCount = 0;
+    const row = { count: 0, amount: 0 };
     Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
       const n = usageCount(ev, m.id, mid);
-      rowCount += n;
-      c.matByMember[mid] = (c.matByMember[mid] || 0) + n * m.price;
+      const amt = n * refundUnit(m.price, rateOf(ev, members, mid));
+      row.count += n;
+      row.amount += amt;
+      c.matByMember[mid] = (c.matByMember[mid] || 0) + amt;
     });
-    c.matRow[m.id] = { count: rowCount, amount: rowCount * m.price };
-    c.material += rowCount * m.price;
+    c.matRow[m.id] = row;
+    c.material += row.amount;
   });
   ev.expenses.forEach((x) => {
     c.expense += x.amount;
@@ -263,7 +291,9 @@ function exportCsv(d) {
     ev.materials.forEach((m) => {
       Object.keys(ev.usage[m.id] || {}).forEach((mid) => {
         const n = usageCount(ev, m.id, mid);
-        if (n) rows.push([ev.date, ev.name, '材料返金', m.name, mname(mid), n, m.price, -n * m.price]);
+        const rate = rateOf(ev, members, mid);
+        const unit = refundUnit(m.price, rate);
+        if (n) rows.push([ev.date, ev.name, '材料返金', `${m.name}（${m.price}円の${rate}%）`, mname(mid), n, unit, -n * unit]);
       });
     });
     ev.expenses.forEach((x) => rows.push([ev.date, ev.name, '経費', x.name, x.paidBy ? mname(x.paidBy) + '（立替）' : '', 1, x.amount, -x.amount]));
