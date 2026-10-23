@@ -11,11 +11,11 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 function defaultSettings() {
   return {
     members: [
-      // rate：材料の単価の何％を返金するか
-      { id: 'm_kura', name: '倉', rate: 50 },
-      { id: 'm_shintani', name: '新谷由起美AD', rate: 80 },
-      { id: 'm_tanaka', name: '田中博明AD', rate: 80 },
-      { id: 'm_other', name: 'その他', rate: 80 },
+      // rate：材料の単価の何％を返金するか　share：マイナスやプラスを等分する仲間か
+      { id: 'm_kura', name: '倉', rate: 50, share: true },
+      { id: 'm_shintani', name: '新谷由起美AD', rate: 80, share: true },
+      { id: 'm_tanaka', name: '田中博明AD', rate: 80, share: true },
+      { id: 'm_other', name: 'その他', rate: 80, share: false },
     ],
     materials: [
       { id: 'mat_kiso', name: '基礎化粧品 一回分', price: 689 },
@@ -54,7 +54,7 @@ function defaultSettings() {
     // 駐車場代の補助：2000円以上で100円、3000円以上で300円
     parking: { t1: 2000, a1: 100, t2: 3000, a2: 300 },
     defaultVenue: '松雲堂',
-    rev: 5,
+    rev: 6,
   };
 }
 
@@ -130,6 +130,11 @@ function normalizeDb(d) {
     });
     s.rev = 5;
   }
+  // 精算で等分する仲間（その他の人以外）
+  if (s.rev < 6) {
+    s.members.forEach((m) => { if (m.share == null) m.share = m.id !== 'm_other'; });
+    s.rev = 6;
+  }
   const events = Array.isArray(d.events) ? d.events.map((e) => {
     const ev = normalizeEvent(e, s);
     if (upgrade4 || upgrade5) ev.materials = upgradeMaterials(ev.materials);
@@ -172,6 +177,8 @@ function normalizeEvent(e, settings) {
     // 会ごとの返金の割合（作成時の設定を記録）
     rates: e.rates && typeof e.rates === 'object' ? e.rates : memberRates(settings),
     expenses: (e.expenses || []).map((x) => ({ id: x.id || uid(), name: x.name || '', amount: num(x.amount), paidBy: x.paidBy || '' })),
+    // 精算済みの記録（精算したときの金額を残す）
+    settle: e.settle && typeof e.settle === 'object' ? e.settle : null,
   };
 }
 
@@ -367,6 +374,68 @@ function payouts(c, members) {
   }));
 }
 
+// ---------- 繰越と精算 ----------
+// 会のお金は会から会へ繰り越す。精算済みの会のあとは 0円 から始まる
+function carryChain(events, members, menus) {
+  const asc = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const out = {};
+  let carry = 0;
+  let prev = null;
+  asc.forEach((ev) => {
+    const c = calcEvent(ev, members, menus);
+    const r = {
+      prevId: prev ? prev.id : null,
+      carryIn: carry,
+      balance: c.balance,
+      total: carry + c.balance,
+      // 前回までのプラスで今回のマイナスを埋めた額
+      usedFromPrev: carry > 0 && c.balance < 0 ? Math.min(carry, -c.balance) : 0,
+      // 今回のプラスで前回までのマイナスを埋めた額
+      coveredPrev: carry < 0 && c.balance > 0 ? Math.min(-carry, c.balance) : 0,
+    };
+    r.carryOut = ev.settle ? 0 : r.total;
+    out[ev.id] = r;
+    carry = r.carryOut;
+    prev = ev;
+  });
+  return { byId: out, current: carry };
+}
+
+// amount を n 人で等分（端数の1円は前の人から順に）
+function splitEven(amount, n) {
+  if (!n) return [];
+  const sign = amount < 0 ? -1 : 1;
+  const a = Math.abs(amount);
+  const base = Math.floor(a / n);
+  return Array.from({ length: n }, (_, i) => sign * (base + (i < a - base * n ? 1 : 0)));
+}
+
+// 精算の計算
+//   マイナスのとき：足りない分を仲間で等分して負担し、各自の材料代・立替経費と相殺
+//   プラスのとき：残ったお金を仲間で等分して、各自の材料代・立替経費に足す
+//   net がプラスなら会のお金から「もらう」、マイナスなら会のお金に「払う」
+function settlementPlan(c, total, members) {
+  const po = payouts(c, members);
+  const sharers = members.filter((m) => m.share);
+  const parts = splitEven(total, sharers.length);
+  const rows = po.map((p) => {
+    const i = sharers.findIndex((m) => m.id === p.id);
+    const share = i < 0 ? 0 : parts[i];
+    return { id: p.id, mat: p.mat, exp: p.exp, owed: p.total, share, net: p.total + share };
+  }).filter((r) => r.owed || r.share || members.some((m) => m.id === r.id && m.share));
+  return { total, sharers: sharers.length, rows, cash: rows.reduce((s, r) => s + r.net, 0) };
+}
+
+// 精算した後で内容が変わっていないか
+function settleChanged(ev, plan) {
+  if (!ev.settle) return false;
+  if (ev.settle.total !== plan.total) return true;
+  return plan.rows.some((r) => {
+    const s = ev.settle.rows.find((x) => x.id === r.id);
+    return !s || s.net !== r.net;
+  });
+}
+
 // ---------- バックアップ ----------
 function exportJson(d) {
   return JSON.stringify({ app: 'taikenkai', exportedAt: new Date().toISOString(), ...d }, null, 2);
@@ -389,17 +458,19 @@ function exportCsv(d) {
   const mname = (id) => (members.find((m) => m.id === id) || {}).name || '（削除された人）';
   const rows = [];
   rows.push(['■ 会ごとの精算']);
-  rows.push(['日付', '会の名前', '種類', '会場', '参加人数', '売上', '駐車場返金', '材料返金', '経費', '残高', ...members.map((m) => m.name + 'へ返金')]);
-  const sorted = [...d.events].sort((a, b) => a.date.localeCompare(b.date));
-  let cum = 0;
+  rows.push(['日付', '会の名前', '種類', '会場', '参加人数', '売上', '駐車場返金', '材料返金', '経費', '今回の収支', '前回からの繰越', '合計', '精算', '次回への繰越',
+    ...members.map((m) => m.name + 'へ返金'), ...members.map((m) => m.name + ' 精算（＋もらう／−払う）')]);
+  const chain = carryChain(d.events, members, d.settings.menus).byId;
+  const sorted = [...d.events].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   sorted.forEach((ev) => {
     const c = calcEvent(ev, members, d.settings.menus);
-    cum += c.balance;
     const po = payouts(c, members);
-    rows.push([ev.date, ev.name, ev.kind, ev.venue, c.people, c.sales, c.parking, c.material, c.expense, c.balance,
-      ...members.map((m) => (po.find((p) => p.id === m.id) || {}).total || 0)]);
+    const ch = chain[ev.id];
+    rows.push([ev.date, ev.name, ev.kind, ev.venue, c.people, c.sales, c.parking, c.material, c.expense, c.balance, ch.carryIn, ch.total, ev.settle ? '精算済み' : '', ch.carryOut,
+      ...members.map((m) => (po.find((p) => p.id === m.id) || {}).total || 0),
+      ...members.map((m) => (ev.settle ? ((ev.settle.rows.find((r) => r.id === m.id) || {}).net || 0) : ''))]);
   });
-  rows.push(['', '', '', '', '累計残高', '', '', '', '', cum]);
+  rows.push(['', '', '', '', '今の会のお金（繰越残高）', '', '', '', '', '', '', '', '', carryChain(d.events, members, d.settings.menus).current]);
   rows.push([]);
   rows.push(['■ 明細']);
   rows.push(['日付', '会の名前', '区分', '内容', '人', '数量', '単価', '金額']);

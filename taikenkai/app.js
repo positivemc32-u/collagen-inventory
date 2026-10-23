@@ -66,15 +66,14 @@ function renderNotices() {
 // ---------- 会の一覧 ----------
 function renderEvents() {
   const list = sortedEvents();
-  // 古い順に足して累計残高を出す
-  const cum = {};
-  let run = 0;
-  [...list].reverse().forEach((ev) => { run += calcEvent(ev, members(), menus()).balance; cum[ev.id] = run; });
+  const chain = carryChain(db.events, members(), menus());
+  const sum = list.reduce((s, ev) => s + chain.byId[ev.id].balance, 0);
 
   main.innerHTML = `
     <div class="total-card">
-      <div class="total-label">これまでの累計残高（${list.length}回分）</div>
-      <div class="total-value ${run < 0 ? 'minus' : ''}">${yen(run)}</div>
+      <div class="total-label">今の会のお金（前回までの繰越）</div>
+      <div class="total-value ${chain.current < 0 ? 'minus' : ''}">${signedYen(chain.current)}</div>
+      <div class="total-sub">${chain.current < 0 ? 'マイナスです。会の画面の「⑤ 繰越と精算」でみんなで精算できます' : '次の会に繰り越されます'}　／　これまでの収支の合計（${list.length}回）${signedYen(sum)}</div>
     </div>
     <button type="button" class="btn primary block" data-act="new-event">＋ 新しい会を作る</button>
     ${list.length ? '' : '<p class="empty">まだ会がありません。「＋ 新しい会を作る」から始めてください。</p>'}
@@ -91,8 +90,8 @@ function renderEvents() {
             <span>参加 ${c.people}人</span><span>売上 ${yen(c.sales)}</span>
             <span>返金・経費 ${yen(c.parking + c.material + c.expense)}</span>
           </div>
-          <div class="event-bal">残高 <b class="${c.balance < 0 ? 'minus' : ''}">${yen(c.balance)}</b>
-            <small>累計 ${yen(cum[ev.id])}</small></div>
+          <div class="event-bal">今回 <b class="${c.balance < 0 ? 'minus' : ''}">${signedYen(c.balance)}</b>
+            ${ev.settle ? '<span class="badge settled">✅ 精算済み</span>' : `<small>繰越込み ${signedYen(chain.byId[ev.id].total)}</small>`}</div>
         </button>`;
       }).join('')}
     </div>`;
@@ -257,8 +256,13 @@ function renderEvent() {
     </section>
 
     <section class="panel">
-      <h2>④ 精算結果</h2>
+      <h2>④ 今回の結果</h2>
       <div id="evResult"></div>
+    </section>
+
+    <section class="panel">
+      <h2>⑤ 繰越と精算</h2>
+      <div id="evSettle"></div>
     </section>`;
   refreshCalc();
 }
@@ -269,6 +273,7 @@ function refreshCalc() {
   if (!ev) return;
   const ms = members();
   const c = calcEvent(ev, ms, menus());
+  const ch = carryChain(db.events, ms, menus()).byId[ev.id];
   const set = (key, text) => document.querySelectorAll(`[data-calc="${key}"]`).forEach((el) => { el.textContent = text; });
   set('sales', yen(c.sales));
   set('material', yen(c.material));
@@ -295,7 +300,8 @@ function refreshCalc() {
     <div class="sum-line"><span>駐車場</span><b>−${yen(c.parking)}</b></div>
     <div class="sum-line"><span>材料</span><b>−${yen(c.material)}</b></div>
     <div class="sum-line"><span>経費</span><b>−${yen(c.expense)}</b></div>
-    <div class="sum-line bal"><span>残高</span><b class="${c.balance < 0 ? 'minus' : ''}">${yen(c.balance)}</b></div>`;
+    <div class="sum-line bal"><span>今回</span><b class="${c.balance < 0 ? 'minus' : ''}">${signedYen(c.balance)}</b></div>
+    <div class="sum-carry">前回からの繰越 ${signedYen(ch.carryIn)} ＋ 今回 ${signedYen(c.balance)} ＝ <b class="${ch.total < 0 ? 'minus' : ''}">合計 ${signedYen(ch.total)}</b>${ev.settle ? '　✅ 精算済み' : ''}</div>`;
 
   const po = payouts(c, ms).filter((p) => p.total || ms.some((m) => m.id === p.id));
   $('#evResult').innerHTML = `
@@ -304,14 +310,74 @@ function refreshCalc() {
       <tr><th>駐車場代の返金</th><td>−${yen(c.parking)}</td></tr>
       <tr><th>材料の返金</th><td>−${yen(c.material)}</td></tr>
       <tr><th>経費</th><td>−${yen(c.expense)}</td></tr>
-      <tr class="bal"><th>残高</th><td class="${c.balance < 0 ? 'minus' : ''}">${yen(c.balance)}</td></tr>
+      <tr class="bal"><th>今回の収支</th><td class="${c.balance < 0 ? 'minus' : ''}">${signedYen(c.balance)}</td></tr>
     </table>
-    <h3>お金を返す相手</h3>
+    <h3>返してもらう分（材料代・立替経費）</h3>
     <table class="result payout">
       <thead><tr><th>名前</th><th>材料代</th><th>立替経費</th><th>返金合計</th></tr></thead>
       <tbody>${po.map((p) => `<tr><th>${esc(memberName(p.id))}</th><td>${yen(p.mat)}</td><td>${yen(p.exp)}</td><td><b>${yen(p.total)}</b></td></tr>`).join('')}</tbody>
     </table>
     ${c.parking ? `<p class="hint">駐車場代の返金：${ev.participants.filter((p) => p.parking).map((p) => `${esc(p.name || '参加者')} ${yen(p.parking)}`).join('、')}</p>` : ''}`;
+  $('#evSettle').innerHTML = settleHtml(ev, c, ch, ms);
+}
+
+function signedYen(n) {
+  return (n > 0 ? '+' : '') + yen(n);
+}
+
+// ⑤ 繰越と精算
+function settleHtml(ev, c, ch, ms) {
+  const prev = ch.prevId && db.events.find((e) => e.id === ch.prevId);
+  const plan = settlementPlan(c, ch.total, ms);
+  const notes = [];
+  if (ch.usedFromPrev) notes.push(`前回までのプラス ${yen(ch.carryIn)} のうち <b>${yen(ch.usedFromPrev)}</b> を、今回のマイナスの補填に使いました。`);
+  if (ch.coveredPrev) notes.push(`今回のプラスで、前回までのマイナス <b>${yen(ch.coveredPrev)}</b> を補填しました。`);
+  const head = `
+    <table class="result">
+      <tr><th>前回からの繰越${prev ? `<small>（${esc(dateShort(prev.date))} ${esc(prev.name)}${prev.settle ? '・精算済み' : ''}）</small>` : '<small>（最初の会）</small>'}</th>
+        <td class="${ch.carryIn < 0 ? 'minus' : ''}">${signedYen(ch.carryIn)}</td></tr>
+      <tr><th>今回の収支</th><td class="${ch.balance < 0 ? 'minus' : ''}">${signedYen(ch.balance)}</td></tr>
+      <tr class="bal"><th>合計</th><td class="${ch.total < 0 ? 'minus' : ''}">${signedYen(ch.total)}</td></tr>
+    </table>
+    ${notes.length ? `<p class="note">${notes.join('<br>')}</p>` : ''}`;
+
+  if (ev.settle) {
+    const changed = settleChanged(ev, plan);
+    return `${head}
+      <div class="settled-box">✅ <b>${esc(new Date(ev.settle.at).toLocaleDateString('ja-JP'))} に精算済み</b>。
+        合計 ${signedYen(ev.settle.total)} を精算して、次の会は 0円 から始まります。</div>
+      ${changed ? `<div class="notice">⚠️ 精算したあとで内容が変わりました。いまの内容で計算し直すと下の「いまの計算」になります。
+        <button type="button" class="btn small" data-act="settle">いまの内容で精算し直す</button></div>` : ''}
+      <h3>精算したときのやり取り</h3>
+      ${personCards(ev.settle.rows, ev.settle.total, ev.settle.sharers || plan.sharers)}
+      ${changed ? `<h3>いまの計算</h3>${personCards(plan.rows, plan.total, plan.sharers)}` : ''}
+      <button type="button" class="btn block" data-act="unsettle">精算を取り消す</button>`;
+  }
+
+  const n = plan.sharers;
+  const intro = ch.total < 0
+    ? `<p>合計が <b class="minus">マイナス ${yen(-ch.total)}</b> です。足りない分を ${n}人で等分して（1人 約${yen(-ch.total / n)}）、各自の材料代・立替経費と相殺します。</p>`
+    : ch.total > 0
+      ? `<p>合計が <b>プラス ${yen(ch.total)}</b> です。何もしなければ次の会に繰り越します。${n}人で分けて精算する場合は下のとおりです（1人 約${yen(ch.total / n)}）。</p>`
+      : '<p>合計は 0円 です。材料代・立替経費を返して精算できます。</p>';
+  const label = ch.total < 0 ? '支払いが終わったので精算済みにする（プラマイゼロ）' : ch.total > 0 ? `${n}人で分けて精算済みにする` : '精算済みにする';
+  return `${head}${intro}
+    ${personCards(plan.rows, plan.total, n)}
+    <p class="hint">会のお金（手元の現金）は ${yen(plan.cash)}。上のとおりにやり取りすると、ちょうど 0円 になります。端数の1円は上の人から順に割り振っています。</p>
+    <button type="button" class="btn primary block" data-act="settle">${label}</button>`;
+}
+
+// 人ごとの「もらう／払う」
+function personCards(rows, total, n) {
+  const shareLabel = total < 0 ? 'マイナス負担' : 'プラス分配';
+  return `<div class="person-cards">${rows.map((r) => `
+    <div class="person ${r.net > 0 ? 'get' : r.net < 0 ? 'pay' : ''}">
+      <div class="pname">${esc(memberName(r.id))}</div>
+      <div class="pline"><span>材料代</span><span>${yen(r.mat)}</span></div>
+      <div class="pline"><span>立替経費</span><span>${yen(r.exp)}</span></div>
+      <div class="pline"><span>${r.share ? shareLabel : '等分'}</span><span>${r.share ? signedYen(r.share) : (n && total ? '対象外' : '—')}</span></div>
+      <div class="pnet">${r.net > 0 ? `もらう <b>${yen(r.net)}</b>` : r.net < 0 ? `払う <b>${yen(-r.net)}</b>` : 'やり取りなし'}</div>
+    </div>`).join('')}</div>`;
 }
 
 function stepperHtml(attrs, value, label) {
@@ -465,6 +531,7 @@ function memRowHtml(m) {
   return `<div class="edit-row" data-id="${esc(m.id)}">
     <input name="n" value="${esc(m.name)}" placeholder="名前">
     <span class="pct"><input name="r" type="number" inputmode="numeric" min="0" max="100" value="${m.rate == null ? 100 : m.rate}" aria-label="返金の割合">%</span>
+    <label class="share"><input type="checkbox" name="s"${m.share ? ' checked' : ''}>等分</label>
     <button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button>
   </div>`;
 }
@@ -495,7 +562,7 @@ function renderSummary() {
   const list = sortedEvents().filter((e) => state.year === 'all' || e.date.startsWith(state.year)).reverse();
   const tot = { people: 0, sales: 0, parking: 0, material: 0, expense: 0, balance: 0 };
   const perMember = {};
-  let cum = 0;
+  const chain = carryChain(db.events, ms, menus()).byId;
   const rows = list.map((ev) => {
     const c = calcEvent(ev, ms, menus());
     Object.keys(tot).forEach((k) => { tot[k] += c[k]; });
@@ -503,25 +570,27 @@ function renderSummary() {
       const t = perMember[p.id] || (perMember[p.id] = { mat: 0, exp: 0, total: 0 });
       t.mat += p.mat; t.exp += p.exp; t.total += p.total;
     });
-    cum += c.balance;
+    const ch = chain[ev.id];
     return `<tr data-open="${ev.id}"><td>${esc(dateShort(ev.date))}</td><td class="l">${esc(ev.name)}</td><td>${c.people}</td>
       <td>${yen(c.sales)}</td><td>${yen(c.parking)}</td><td>${yen(c.material)}</td><td>${yen(c.expense)}</td>
-      <td class="${c.balance < 0 ? 'minus' : ''}"><b>${yen(c.balance)}</b></td><td>${yen(cum)}</td></tr>`;
+      <td class="${c.balance < 0 ? 'minus' : ''}"><b>${signedYen(c.balance)}</b></td><td>${signedYen(ch.carryIn)}</td>
+      <td class="${ch.total < 0 ? 'minus' : ''}">${signedYen(ch.total)}</td><td>${ev.settle ? '✅ 精算済み' : '繰越'}</td></tr>`;
   });
   main.innerHTML = `
     <div class="field inline"><label>期間</label>
       <select id="yearSel"><option value="all">全期間</option>${years.map((y) => `<option value="${y}"${y === state.year ? ' selected' : ''}>${y}年</option>`).join('')}</select></div>
     <div class="total-card">
-      <div class="total-label">${state.year === 'all' ? '全期間' : state.year + '年'}の残高（${list.length}回・参加 ${tot.people}人）</div>
-      <div class="total-value ${tot.balance < 0 ? 'minus' : ''}">${yen(tot.balance)}</div>
-      <div class="total-sub">売上 ${yen(tot.sales)} − 駐車場 ${yen(tot.parking)} − 材料 ${yen(tot.material)} − 経費 ${yen(tot.expense)}</div>
+      <div class="total-label">${state.year === 'all' ? '全期間' : state.year + '年'}の収支の合計（${list.length}回・参加 ${tot.people}人）</div>
+      <div class="total-value ${tot.balance < 0 ? 'minus' : ''}">${signedYen(tot.balance)}</div>
+      <div class="total-sub">売上 ${yen(tot.sales)} − 駐車場 ${yen(tot.parking)} − 材料 ${yen(tot.material)} − 経費 ${yen(tot.expense)}<br>
+        今の会のお金（繰越）${signedYen(carryChain(db.events, ms, menus()).current)}</div>
     </div>
     <section class="panel">
       <h2>会ごとの精算</h2>
       <div class="table-wrap"><table class="grid">
-        <thead><tr><th>日付</th><th class="l">会</th><th>人数</th><th>売上</th><th>駐車場</th><th>材料</th><th>経費</th><th>残高</th><th>累計</th></tr></thead>
-        <tbody>${rows.join('') || '<tr><td colspan="9">記録がありません</td></tr>'}</tbody>
-        <tfoot><tr><th></th><th class="l">合計</th><th>${tot.people}</th><th>${yen(tot.sales)}</th><th>${yen(tot.parking)}</th><th>${yen(tot.material)}</th><th>${yen(tot.expense)}</th><th>${yen(tot.balance)}</th><th></th></tr></tfoot>
+        <thead><tr><th>日付</th><th class="l">会</th><th>人数</th><th>売上</th><th>駐車場</th><th>材料</th><th>経費</th><th>今回</th><th>繰越</th><th>合計</th><th>精算</th></tr></thead>
+        <tbody>${rows.join('') || '<tr><td colspan="11">記録がありません</td></tr>'}</tbody>
+        <tfoot><tr><th></th><th class="l">合計</th><th>${tot.people}</th><th>${yen(tot.sales)}</th><th>${yen(tot.parking)}</th><th>${yen(tot.material)}</th><th>${yen(tot.expense)}</th><th>${signedYen(tot.balance)}</th><th></th><th></th><th></th></tr></tfoot>
       </table></div>
     </section>
     <section class="panel">
@@ -529,6 +598,18 @@ function renderSummary() {
       <table class="result payout">
         <thead><tr><th>名前</th><th>材料代</th><th>立替経費</th><th>合計</th></tr></thead>
         <tbody>${Object.keys(perMember).filter((id) => perMember[id].total || ms.some((m) => m.id === id)).map((id) => `<tr><th>${esc(memberName(id))}</th><td>${yen(perMember[id].mat)}</td><td>${yen(perMember[id].exp)}</td><td><b>${yen(perMember[id].total)}</b></td></tr>`).join('')}</tbody>
+      </table>
+    </section>
+    <section class="panel">
+      <h2>精算でのやり取りの合計</h2>
+      <p class="hint">精算済みにした会の「もらう」「払う」を足したものです（＋はもらった、−は払った）。</p>
+      <table class="result payout">
+        <thead><tr><th>名前</th><th>精算した回数</th><th>合計</th></tr></thead>
+        <tbody>${ms.map((m) => {
+          const done = list.filter((ev) => ev.settle);
+          const sum = done.reduce((s, ev) => s + ((ev.settle.rows.find((r) => r.id === m.id) || {}).net || 0), 0);
+          return `<tr><th>${esc(m.name)}</th><td>${done.length}回</td><td class="${sum < 0 ? 'minus' : ''}"><b>${signedYen(sum)}</b></td></tr>`;
+        }).join('')}</tbody>
       </table>
     </section>`;
   $('#yearSel').onchange = (e) => { state.year = e.target.value; render(); };
@@ -542,7 +623,7 @@ function renderSettings() {
     <form id="setForm">
       <section class="panel">
         <h2>材料を出す人と返金の割合</h2>
-        <p class="hint">材料の単価の何％をその人に返すか（例：倉は50％、ほかは80％）</p>
+        <p class="hint">材料の単価の何％をその人に返すか（例：倉は50％、ほかは80％）。「等分」にチェックした人で、精算のときにマイナス（プラス）を等分します。</p>
         <div id="memRows">${s.members.map((m) => memRowHtml(m)).join('')}</div>
         <button type="button" class="btn small" data-add-row="mem">＋ 人を追加</button>
       </section>
@@ -590,7 +671,7 @@ function renderSettings() {
       const k = add.dataset.addRow;
       const simple = `<div class="edit-row" data-id="${uid()}"><input name="n" placeholder="名前"><button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button></div>`;
       const box = { mem: '#memRows', mat: '#setMatRows', menu: '#menuRows', exp: '#expRows' }[k];
-      const html = { mem: () => memRowHtml({ id: uid(), name: '', rate: 80 }), exp: () => simple }[k];
+      const html = { mem: () => memRowHtml({ id: uid(), name: '', rate: 80, share: false }), exp: () => simple }[k];
       const blank = { id: uid(), name: '', price: 0, mats: [] };
       $(box).insertAdjacentHTML('beforeend', html ? html() : k === 'menu' ? menuRowHtml(blank) : matRowHtml(blank));
       $(box).lastElementChild.querySelector('input').focus();
@@ -603,7 +684,7 @@ function renderSettings() {
     e.preventDefault();
     const f = new FormData(form);
     s.members = [...document.querySelectorAll('#memRows .edit-row')]
-      .map((r) => ({ id: r.dataset.id, name: r.querySelector('[name=n]').value.trim(), rate: num(r.querySelector('[name=r]').value) }))
+      .map((r) => ({ id: r.dataset.id, name: r.querySelector('[name=n]').value.trim(), rate: num(r.querySelector('[name=r]').value), share: r.querySelector('[name=s]').checked }))
       .filter((m) => m.name);
     s.materials = priced('#setMatRows');
     s.menus = priced('#menuRows').map((m) => ({
@@ -766,6 +847,27 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'edit-mats': openMaterialsForm(); break;
+    case 'settle': {
+      const ms = members();
+      const c = calcEvent(ev, ms, menus());
+      const plan = settlementPlan(c, carryChain(db.events, ms, menus()).byId[ev.id].total, ms);
+      const lines = plan.rows.filter((r) => r.net).map((r) => `${memberName(r.id)}：${r.net > 0 ? 'もらう' : '払う'} ${yen(Math.abs(r.net))}`).join('\n');
+      if (confirm(`この内容で精算済みにします。\n\n${lines || 'やり取りなし'}\n\n次の会は 0円 から始まります。よろしいですか？`)) {
+        ev.settle = { at: new Date().toISOString(), total: plan.total, sharers: plan.sharers, rows: plan.rows };
+        persist();
+        render();
+        toast('精算済みにしました');
+      }
+      break;
+    }
+    case 'unsettle':
+      if (confirm('精算を取り消して、合計を次の会に繰り越す状態に戻します。よろしいですか？')) {
+        ev.settle = null;
+        persist();
+        render();
+        toast('精算を取り消しました');
+      }
+      break;
     case 'reset-settings':
       if (confirm('材料・メニュー・人・経費項目を最初の設定に戻します。会の記録は消えません。よろしいですか？')) {
         db.settings = defaultSettings();
