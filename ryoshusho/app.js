@@ -7,6 +7,8 @@ const state = {
   tab: 'create',
   draft: blankReceipt(db), // いま作っている（または履歴から開いた）領収書
   format: 'png', // 基本は PNG。PDF はその都度切り替え
+  month: todayStr().slice(0, 7), // 履歴で見る月（'all' ならすべて）
+  query: '', // 履歴の検索（お客様名・場所）
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -20,6 +22,8 @@ function persist() { saveDb(db); }
 function issuers() { return db.settings.issuers; }
 function issuerOf(r) { return issuers().find((x) => x.id === r.issuerId) || issuers()[0]; }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function uniq(arr) { return [...new Set(arr.map((x) => (x || '').trim()).filter(Boolean))]; }
+function customerOf(r) { return (r.customer || '').trim() || (r.recipient || '').trim(); }
 
 function toast(msg) {
   const t = $('#toast');
@@ -92,6 +96,21 @@ function renderCreate() {
       </div>
     </section>
 
+    <section class="panel memo-panel">
+      <h2>🔒 自分用メモ <small>領収書には出ません</small></h2>
+      <datalist id="customers">${uniq(db.receipts.map((r) => r.customer)).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="row2">
+        <div class="field"><label>お客様の名前</label>
+          <input type="text" data-f="customer" list="customers" value="${esc(d.customer)}" placeholder="例：山田さん"></div>
+        <div class="field"><label>渡した日</label><input type="date" data-f="handedDate" value="${esc(handedOf(d))}"></div>
+      </div>
+      <div class="field"><label>渡した場所</label>
+        <textarea rows="2" data-f="handedPlace" placeholder="例：サロン、〇〇さん宅、LINEで送信">${esc(d.handedPlace)}</textarea></div>
+      <div class="field"><label>現金を受け取った場所</label>
+        <textarea rows="2" data-f="cashPlace" placeholder="例：体験会の会場（〇〇公民館）">${esc(d.cashPlace)}</textarea></div>
+      ${d.id ? `<button type="button" class="btn block" data-act="save">💾 メモを保存</button>` : ''}
+    </section>
+
     <section class="panel">
       <h2>できあがり</h2>
       <canvas id="preview" class="preview"></canvas>
@@ -103,6 +122,7 @@ function renderCreate() {
       </div>
       <button type="button" class="btn primary block" data-act="share">📤 LINE・メールで送る</button>
       <button type="button" class="btn block" data-act="download">⬇ この端末に保存</button>
+      ${d.id ? '' : '<button type="button" class="btn block" data-act="save">📚 送らずに履歴にだけ残す <small>（紙で渡したときなど）</small></button>'}
       <span class="hint">「送る」を押すと共有の画面が出ます。LINE やメールを選んでください。送るか保存すると履歴に残ります。</span>
     </section>
   `;
@@ -206,35 +226,92 @@ async function download() {
 }
 
 // ---------- 履歴 ----------
+function monthLabel(m) { return m === 'all' ? 'すべて' : Number(m.slice(0, 4)) + '年' + Number(m.slice(5)) + '月'; }
+function shiftMonth(m, n) {
+  const base = m === 'all' ? todayStr().slice(0, 7) : m;
+  const d = new Date(Number(base.slice(0, 4)), Number(base.slice(5)) - 1 + n, 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+// 渡した日の月と検索の言葉で絞り込む（新しい順）
+function filteredReceipts() {
+  const q = state.query.trim().toLowerCase();
+  return db.receipts
+    .filter((r) => state.month === 'all' || handedOf(r).startsWith(state.month))
+    .filter((r) => !q || [customerOf(r), r.handedPlace, r.cashPlace, r.tadashi, noLabel(r.no)].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => handedOf(b).localeCompare(handedOf(a)) || b.no - a.no);
+}
+
 function renderHistory() {
-  const list = [...db.receipts].sort((a, b) => b.no - a.no);
-  main.innerHTML = list.length ? `
-    <div class="cards">
+  if (!db.receipts.length) { main.innerHTML = '<p class="empty">まだ発行した領収書はありません</p>'; return; }
+  main.innerHTML = `
+    <div class="month-nav">
+      <button type="button" class="icon-btn" data-month="-1" aria-label="前の月">◀</button>
+      <b>${monthLabel(state.month)}</b>
+      <button type="button" class="icon-btn" data-month="1" aria-label="次の月">▶</button>
+      <button type="button" class="btn small" data-month="${state.month === 'all' ? 'now' : 'all'}">${state.month === 'all' ? '今月' : 'すべて'}</button>
+    </div>
+    <input type="search" id="histQuery" value="${esc(state.query)}" placeholder="🔍 お客様の名前・場所で探す">
+    <div id="histBody"></div>
+    <button type="button" class="btn block" data-act="csv">📄 履歴を CSV で書き出す</button>
+  `;
+  renderHistoryBody();
+}
+
+// 検索の文字を打つたびに入力欄ごと描き直すと文字が消えるので、下の部分だけ描き直す
+function renderHistoryBody() {
+  const list = filteredReceipts();
+  const total = list.reduce((sum, r) => sum + calcReceipt(r).total, 0);
+  // お客様ごとの合計
+  const byCustomer = {};
+  list.forEach((r) => {
+    const name = customerOf(r) || '（名前なし）';
+    const c = byCustomer[name] || (byCustomer[name] = { name, count: 0, total: 0 });
+    c.count += 1;
+    c.total += calcReceipt(r).total;
+  });
+  const customers = Object.values(byCustomer).sort((a, b) => b.total - a.total);
+  $('#histBody').innerHTML = `
+    <div class="total-card">
+      <div class="total-label">${state.month === 'all' ? 'これまで' : monthLabel(state.month)}に渡した領収書${state.query.trim() ? '（検索中）' : ''}</div>
+      <div class="total-value">${yen(total)}</div>
+      <div class="total-sub">${list.length}枚 ・ ${customers.length}人</div>
+    </div>
+    ${customers.length ? `
+      <details class="panel cust-sum" ${customers.length <= 5 ? 'open' : ''}>
+        <summary>お客様ごとの合計</summary>
+        <table class="result">
+          <tr><th>お客様</th><th class="num">枚数</th><th class="num">金額</th></tr>
+          ${customers.map((c) => `<tr><td><button type="button" class="link" data-q="${esc(c.name === '（名前なし）' ? '' : c.name)}">${esc(c.name)}</button></td><td class="num">${c.count}</td><td class="num">${yen(c.total)}</td></tr>`).join('')}
+        </table>
+      </details>` : ''}
+    ${list.length ? `<div class="cards">
       ${list.map((r) => `
         <div class="card">
           <button type="button" class="hist" data-open="${esc(r.id)}">
-            <span class="hist-no">No.${noLabel(r.no)}</span>
-            <span class="hist-date">${dateJa(r.date)}</span>
+            <span class="hist-no">${esc(customerOf(r) || '（名前なし）')}</span>
+            <span class="hist-date">${dateJa(handedOf(r))}</span>
             <span class="hist-amt">${yen(calcReceipt(r).total)}</span>
-            <span class="hist-sub">${r.recipient ? esc(r.recipient) + ' 様' : '宛名なし'} ・ ${esc(r.tadashi)} ・ ${esc(issuerOf(r).name)}</span>
+            <span class="hist-sub">No.${noLabel(r.no)} ・ ${esc(r.tadashi)} ・ ${esc(issuerOf(r).name)}${r.payment ? ' ・ ' + esc(r.payment) : ''}</span>
+            ${r.handedPlace ? `<span class="hist-memo">📍 渡した場所：${esc(r.handedPlace)}</span>` : ''}
+            ${r.cashPlace ? `<span class="hist-memo">💴 現金を受け取った場所：${esc(r.cashPlace)}</span>` : ''}
           </button>
           <div class="row-actions">
-            <button type="button" class="btn small" data-open="${esc(r.id)}">開く・送り直す</button>
+            <button type="button" class="btn small" data-open="${esc(r.id)}">開く・直す</button>
             <button type="button" class="btn small" data-copy="${esc(r.id)}">複製して新しく</button>
             <button type="button" class="btn small danger" data-remove="${esc(r.id)}">削除</button>
           </div>
         </div>`).join('')}
-    </div>
-    <button type="button" class="btn block" data-act="csv">📄 履歴を CSV で書き出す</button>
-  ` : '<p class="empty">まだ発行した領収書はありません</p>';
+    </div>` : '<p class="empty">この条件の領収書はありません</p>'}
+  `;
 }
 
 function exportCsv() {
-  const rows = [['番号', '発行日', '宛名', '但し書き', '合計（税込）', '10%対象', '10%消費税', '8%対象', '8%消費税', 'お支払方法', '発行元']];
+  const rows = [['番号', '発行日', '宛名', '但し書き', '合計（税込）', '10%対象', '10%消費税', '8%対象', '8%消費税', 'お支払方法', '発行元', 'お客様', '渡した日', '渡した場所', '現金を受け取った場所']];
   [...db.receipts].sort((a, b) => a.no - b.no).forEach((r) => {
     const { total, taxes } = calcReceipt(r);
     const t = (rate) => taxes.find((x) => x.rate === rate) || { amount: 0, tax: 0 };
-    rows.push([noLabel(r.no), r.date, r.recipient, r.tadashi, total, t(10).amount, t(10).tax, t(8).amount, t(8).tax, r.payment, issuerOf(r).name]);
+    rows.push([noLabel(r.no), r.date, r.recipient, r.tadashi, total, t(10).amount, t(10).tax, t(8).amount, t(8).tax, r.payment, issuerOf(r).name, r.customer || '', handedOf(r), r.handedPlace || '', r.cashPlace || '']);
   });
   const csv = '﻿' + rows.map((row) => row.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
   downloadFile(new File([csv], 'receipt_history_' + todayStr() + '.csv', { type: 'text/csv' }));
@@ -273,10 +350,17 @@ function renderSettings() {
 }
 
 // ---------- 操作 ----------
+const MEMO_FIELDS = ['customer', 'handedDate', 'handedPlace', 'cashPlace'];
+
 main.addEventListener('input', (e) => {
   const t = e.target;
   const d = state.draft;
-  if (t.dataset.f) { d[t.dataset.f] = t.value; updatePreview(); return; }
+  if (t.dataset.f) {
+    d[t.dataset.f] = t.value;
+    if (!MEMO_FIELDS.includes(t.dataset.f)) updatePreview();
+    return;
+  }
+  if (t.id === 'histQuery') { state.query = t.value; renderHistoryBody(); return; }
   if (t.dataset.it) {
     const it = d.items[Number(t.closest('.item-row').dataset.i)];
     const k = t.dataset.it;
@@ -306,12 +390,19 @@ main.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   const d = state.draft;
+  if (b.dataset.month) {
+    const m = b.dataset.month;
+    state.month = m === 'all' ? 'all' : m === 'now' ? todayStr().slice(0, 7) : shiftMonth(state.month, Number(m));
+    renderHistory();
+    return;
+  }
+  if (b.dataset.q != null) { state.query = b.dataset.q; renderHistory(); return; }
   if (b.dataset.tadashi) { d.tadashi = b.dataset.tadashi; renderCreate(); return; }
   if (b.dataset.del != null) { d.items.splice(Number(b.dataset.del), 1); renderCreate(); return; }
   if (b.dataset.open) { state.draft = clone(db.receipts.find((r) => r.id === b.dataset.open)); state.tab = 'create'; render(); return; }
   if (b.dataset.copy) {
     const src = db.receipts.find((r) => r.id === b.dataset.copy);
-    state.draft = { ...clone(src), id: null, no: null, date: todayStr(), createdAt: undefined };
+    state.draft = { ...clone(src), id: null, no: null, date: todayStr(), handedDate: todayStr(), createdAt: undefined };
     state.tab = 'create';
     render();
     return;
@@ -339,6 +430,11 @@ main.addEventListener('click', (e) => {
     case 'addItem': d.items.push({ name: '', qty: 1, price: 0, rate: 10 }); renderCreate(); break;
     case 'share': share(); break;
     case 'download': download(); break;
+    case 'save':
+      if (!checkReady()) break;
+      commit();
+      toast('履歴に保存しました（No.' + noLabel(state.draft.no) + '）');
+      break;
     case 'csv': exportCsv(); break;
     case 'addIssuer':
       issuers().push({ ...issuers()[0], id: uid(), name: '' });

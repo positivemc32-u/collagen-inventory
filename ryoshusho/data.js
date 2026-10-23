@@ -78,6 +78,11 @@ function blankReceipt(db) {
     items: [{ name: '', qty: 1, price: 0, rate: 10 }],
     payment: '現金',
     issuerId: db.settings.issuerId,
+    // ここから下は自分用のメモ（領収書には出ません）
+    customer: '', // お客様の名前
+    handedDate: todayStr(), // 領収書を渡した日
+    handedPlace: '', // 渡した場所
+    cashPlace: '', // 現金を受け取った場所
   };
 }
 
@@ -101,6 +106,7 @@ function calcReceipt(r) {
 }
 
 function yen(n) { return '¥' + Math.round(n).toLocaleString('ja-JP'); }
+function handedOf(r) { return r.handedDate || r.date; }
 function noLabel(no) { return no == null ? '' : String(no).padStart(4, '0'); }
 function dateJa(s) {
   const [y, m, d] = s.split('-').map(Number);

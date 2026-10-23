@@ -182,3 +182,22 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip { border: 1px dashed var(--primary); background: var(--primary-soft); color: var(--primary); border-radius: 99px; padding: 6px 12px; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; }
 .toast { white-space: nowrap; }
+
+/* ---------- 自分用メモ・履歴 ---------- */
+.memo-panel { border-style: dashed; }
+textarea { resize: vertical; min-height: 0; }
+.month-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.month-nav b { font-size: 1.1rem; color: var(--navy); min-width: 7.5em; text-align: center; }
+.month-nav .btn { margin-left: auto; }
+#histQuery { margin-bottom: 10px; }
+.total-card { background: var(--navy); color: #fff; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+@media (prefers-color-scheme: dark) { .total-card { background: #2c3a5c; } }
+.total-label { font-size: .85rem; opacity: .85; }
+.total-value { font-size: 1.9rem; font-weight: 800; letter-spacing: .02em; }
+.total-sub { font-size: .8rem; opacity: .85; }
+.cust-sum summary { font-weight: 700; color: var(--navy); cursor: pointer; }
+table.result { width: 100%; border-collapse: collapse; margin-top: 8px; }
+table.result th, table.result td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+table.result .num { text-align: right; white-space: nowrap; }
+table.result .link { padding: 0; text-align: left; }
+.hist-memo { grid-column: 1 / -1; font-size: .85rem; background: var(--bg); border-radius: 8px; padding: 4px 8px; margin-top: 4px; white-space: pre-wrap; }
