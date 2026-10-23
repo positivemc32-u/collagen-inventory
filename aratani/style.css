@@ -156,3 +156,8 @@ table.ledger { border-collapse: collapse; width: 100%; background: #fff; }
 .print-only { display: none; }
 @media print { .print-only { display: block !important; } }
 .steps li { margin-bottom: 12px; }
+.wage-grid td, .wage-grid th { padding: 3px 4px; text-align: center; }
+.wage-grid select { min-height: 34px; padding: 2px 4px; font-size: 0.9rem; }
+.wage-grid select.on { background: #e3f3e8; font-weight: bold; }
+.wage-grid .sticky { position: sticky; left: 0; background: #fff; z-index: 1; text-align: left; white-space: nowrap; }
+.wage-grid thead .sticky { background: #eef2f5; }

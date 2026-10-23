@@ -57,6 +57,7 @@ function defaultState() {
     entries: [],
     books: {},
     settings: { inputMode: 'pick' },
+    wages: {},
     lastBackup: null,
     seq: 1,
   };
@@ -158,6 +159,7 @@ function closingBalance(account, year) {
 function bookKey(account, year) { return `${account}-${year}`; }
 function allYears() {
   const ys = new Set(state.entries.map(e => e.year));
+  Object.keys(state.wages || {}).forEach(y => ys.add(Number(y)));
   ys.add(fiscalYearOf(todayISO()));
   ys.add(ui.year);
   return [...ys].sort((a, b) => b - a);
@@ -252,6 +254,7 @@ function render() {
   const main = $('#main');
   if (ui.tab === 'ledger') renderLedger(main);
   else if (ui.tab === 'photo') renderPhoto(main);
+  else if (ui.tab === 'wage') renderWage(main);
   else if (ui.tab === 'summary') renderSummary(main);
   else if (ui.tab === 'master') renderMaster(main);
   else if (ui.tab === 'excel') renderExcel(main);
@@ -675,6 +678,159 @@ function renderPhoto(main) {
   });
 }
 
+/* ---------- 👷 賃金（行事参加者名簿 → 賃金集計表） ---------- */
+const DAY_OPTIONS = [['', ''], ['o', '〇'], ['0.5', '0.5日'], ['1', '1日'], ['1.5', '1.5日'], ['2', '2日']];
+
+function wageBook(year) {
+  state.wages = state.wages || {};
+  if (!state.wages[year]) state.wages[year] = { rate: 5000, events: [], marks: {} };
+  return state.wages[year];
+}
+function markDays(v) { return v === 'o' || v === '' || v == null ? 0 : Number(v); }
+function sortedEvents(w) { return w.events.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)); }
+function wagePeople(w) {
+  const names = state.people.map(p => p.name);
+  for (const ev of w.events) for (const n of Object.keys(w.marks[ev.id] || {})) if (!names.includes(n)) names.push(n);
+  return names;
+}
+// 1人ごとの内訳と合計
+function wagePerson(w, name) {
+  const items = [];
+  for (const ev of sortedEvents(w)) {
+    const v = (w.marks[ev.id] || {})[name];
+    if (v && v !== 'o') items.push({ ev, days: Number(v) });
+  }
+  const days = items.reduce((s, x) => s + x.days, 0);
+  const byAccount = {};
+  for (const x of items) byAccount[x.ev.account] = (byAccount[x.ev.account] || 0) + x.days * w.rate;
+  return { items, days, amount: days * w.rate, byAccount };
+}
+function wageAccountTotals(w) {
+  const t = {};
+  for (const n of wagePeople(w)) {
+    const p = wagePerson(w, n);
+    for (const [a, v] of Object.entries(p.byAccount)) t[a] = (t[a] || 0) + v;
+  }
+  return t;
+}
+function eventLabel(ev) { return `${shortDate(ev.date)} ${ev.name}`; }
+
+function renderWage(main) {
+  const w = wageBook(ui.year);
+  const events = sortedEvents(w);
+  const people = wagePeople(w);
+  const totals = wageAccountTotals(w);
+  const accOpts = sel => state.accounts.map(a => `<option value="${a.id}"${a.id === sel ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
+  const pastNames = [...new Set(Object.values(state.wages || {}).flatMap(x => x.events.map(e => e.name)))];
+
+  main.innerHTML = `
+    <div class="card">
+      <div class="row">
+        <label>年度<select id="wYear">${allYears().map(y => `<option value="${y}"${y === ui.year ? ' selected' : ''}>${yearLabel(y)}</option>`).join('')}</select></label>
+        <label>日当（1日あたり）<input type="number" id="wRate" value="${w.rate}" style="width:140px"></label>
+      </div>
+      <p class="hint">① 作業（行事）を登録 → ② 名簿で一人ずつ日数を選ぶ → ③ 合計を帳簿に書き込む。賃金集計表（受領印の欄付き）は Excel に出ます。</p>
+    </div>
+
+    <div class="card">
+      <h2>① 作業（行事）</h2>
+      <div class="table-wrap"><table class="ledger">
+        <thead><tr><th>日付</th><th>作業名</th><th>午前/午後</th><th>払う会計</th><th></th></tr></thead>
+        <tbody>${events.map(ev => `<tr>
+          <td class="date">${shortDate(ev.date)}</td><td>${esc(ev.name)}</td><td>${esc(ev.time || '')}</td>
+          <td>${esc(accountById(ev.account).name)}</td>
+          <td><button class="btn small danger" data-delev="${ev.id}">消す</button></td></tr>`).join('') || '<tr><td colspan="5" class="hint">まだありません</td></tr>'}</tbody>
+      </table></div>
+      <div class="row" style="margin-top:10px">
+        <label>日付<input type="date" id="evDate" value="${esc(ui.evDraft?.date || todayISO())}"></label>
+        <label>作業名<input type="text" id="evName" list="evNames" placeholder="例：林道草刈" value="${esc(ui.evDraft?.name || '')}"></label>
+        <datalist id="evNames">${pastNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+        <label>午前/午後<select id="evTime"><option value="">－</option><option>AM</option><option>PM</option></select></label>
+        <label>払う会計<select id="evAcc">${accOpts(ui.evDraft?.account || 'rindo')}</select></label>
+        <button class="btn primary" id="btnAddEv">作業を追加</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>② 名簿（行事参加者名簿）</h2>
+      ${!people.length ? '<p class="diff-ng">「📝 候補の登録」で人名を登録すると、ここに名簿が出ます。</p>'
+        : !events.length ? '<p class="hint">先に①で作業を追加してください。</p>' : `
+      <p class="hint">〇＝参加したが賃金なし（総会など）。日数を選ぶと、日当×日数が賃金になります。</p>
+      <div class="table-wrap"><table class="ledger wage-grid">
+        <thead><tr><th class="sticky">氏名</th>${events.map(ev => `<th>${esc(ev.name)}<br><span class="hint">${shortDate(ev.date)} ${esc(ev.time || '')}<br>${esc(accountById(ev.account).name)}</span></th>`).join('')}<th>合計</th></tr></thead>
+        <tbody>${people.map(n => {
+          const p = wagePerson(w, n);
+          return `<tr><td class="sticky">${esc(n)}</td>${events.map(ev => {
+            const v = (w.marks[ev.id] || {})[n] || '';
+            return `<td><select data-ev="${ev.id}" data-name="${esc(n)}" class="${v ? 'on' : ''}">${DAY_OPTIONS.map(([k, l]) => `<option value="${k}"${k === String(v) ? ' selected' : ''}>${l}</option>`).join('')}</select></td>`;
+          }).join('')}<td class="num" data-total="${esc(n)}">${yen(p.amount)}</td></tr>`;
+        }).join('')}</tbody>
+        <tfoot><tr><td class="sticky">人数</td>${events.map(ev => `<td class="num" data-count="${ev.id}">${Object.values(w.marks[ev.id] || {}).filter(Boolean).length}人</td>`).join('')}<td></td></tr></tfoot>
+      </table></div>`}
+    </div>
+
+    <div class="card" id="wageTotals">${wageTotalsHTML(w, totals)}</div>`;
+
+  $('#wYear').addEventListener('change', e => { ui.year = Number(e.target.value); renderWage(main); });
+  $('#wRate').addEventListener('change', e => { w.rate = toNum(e.target.value) || 5000; save(); renderWage(main); });
+  $('#btnAddEv').addEventListener('click', () => {
+    const date = $('#evDate').value, name = $('#evName').value.trim();
+    if (!date || !name) return alert('日付と作業名を入れてください。');
+    w.events.push({ id: 'w' + state.seq++, date, name, time: $('#evTime').value, account: $('#evAcc').value });
+    ui.evDraft = { date, account: $('#evAcc').value };
+    save(); renderWage(main); toast('作業を追加しました');
+  });
+  main.querySelectorAll('[data-delev]').forEach(b => b.addEventListener('click', () => {
+    const ev = w.events.find(x => x.id === b.dataset.delev);
+    const n = Object.values(w.marks[ev.id] || {}).filter(Boolean).length;
+    if (!confirm(`「${eventLabel(ev)}」を消します。${n ? `名簿の${n}人分の記録も消えます。` : ''}よろしいですか？`)) return;
+    w.events = w.events.filter(x => x !== ev); delete w.marks[ev.id];
+    save(); renderWage(main);
+  }));
+  main.querySelectorAll('select[data-ev]').forEach(sel => sel.addEventListener('change', () => {
+    const m = w.marks[sel.dataset.ev] = w.marks[sel.dataset.ev] || {};
+    if (sel.value) m[sel.dataset.name] = sel.value; else delete m[sel.dataset.name];
+    sel.classList.toggle('on', !!sel.value);
+    save();
+    main.querySelector(`[data-total="${CSS.escape(sel.dataset.name)}"]`).textContent = yen(wagePerson(w, sel.dataset.name).amount);
+    main.querySelector(`[data-count="${sel.dataset.ev}"]`).textContent = `${Object.values(m).filter(Boolean).length}人`;
+    $('#wageTotals').innerHTML = wageTotalsHTML(w, wageAccountTotals(w));
+    bindWagePost(w);
+  }));
+  bindWagePost(w);
+}
+
+function wageTotalsHTML(w, totals) {
+  const sum = Object.values(totals).reduce((s, v) => s + v, 0);
+  const posted = acc => state.entries.find(e => e.wage === `${ui.year}-${acc}`);
+  return `<h2>③ 会計ごとの賃金の合計</h2>
+    <table class="ledger"><thead><tr><th>会計</th><th>賃金の合計</th><th>帳簿</th></tr></thead><tbody>
+    ${Object.entries(totals).map(([a, v]) => {
+      const e = posted(a);
+      return `<tr><td>${esc(accountById(a).name)}</td><td class="num">${yenAlways(v)}</td>
+        <td>${e ? (e.expense === v ? `<span class="diff-ok">✅ 書き込み済み（${shortDate(e.date)}）</span>` : `<span class="diff-ng">⚠ 帳簿は ${yenAlways(e.expense)}円</span> <button class="btn small" data-post="${a}">直す</button>`)
+          : `<button class="btn small primary" data-post="${a}">帳簿に書き込む</button>`}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="hint">まだありません</td></tr>'}
+    </tbody><tfoot><tr><td>合計</td><td class="num">${yenAlways(sum)}</td><td></td></tr></tfoot></table>
+    <p class="hint">「帳簿に書き込む」で、その会計の帳簿に「賃金」の支払として1行書き込みます（日付は今日、過ぎた年度なら3月20日。帳簿の画面で直せます）。名簿を直したら、もう一度押すと帳簿の金額も直ります。</p>`;
+}
+function bindWagePost(w) {
+  document.querySelectorAll('[data-post]').forEach(b => b.addEventListener('click', () => {
+    const acc = b.dataset.post;
+    const amount = wageAccountTotals(w)[acc] || 0;
+    const names = [...new Set(sortedEvents(w).filter(ev => ev.account === acc).map(ev => ev.name))];
+    const key = `${ui.year}-${acc}`;
+    const existing = state.entries.find(e => e.wage === key);
+    const data = { subject: '賃金', tekiyo: `賃金（${names.join('、')}）`, expense: amount, income: 0 };
+    if (existing) Object.assign(existing, data);
+    else state.entries.push({ id: 'e' + state.seq, seq: state.seq++, account: acc, year: ui.year, wage: key,
+      date: fiscalYearOf(todayISO()) === ui.year ? todayISO() : `${ui.year + 1}-03-20`, note: '', checked: false, ...data });
+    save(); toast(`${accountById(acc).name}の帳簿に書き込みました`);
+    $('#wageTotals').innerHTML = wageTotalsHTML(w, wageAccountTotals(w));
+    bindWagePost(w);
+  }));
+}
+
 /* ---------- 📊 集計 ---------- */
 function subjectTotals(account, year) {
   const map = new Map();
@@ -1023,6 +1179,17 @@ async function exportExcel(years) {
       pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true },
     }), year, accs);
   }
+  for (const year of years) {
+    const w = state.wages && state.wages[year];
+    if (!w || !w.events.length) continue;
+    writeRosterSheet(wb.addWorksheet(`名簿 R${reiwa(year)}`, {
+      pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '1:4' },
+      views: [{ state: 'frozen', xSplit: 2, ySplit: 4 }],
+    }), year, w);
+    writeWageSheet(wb.addWorksheet(`賃金集計表 R${reiwa(year)}`, {
+      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true },
+    }), year, w);
+  }
 
   info.columns = [{ width: 24 }, { width: 18 }, { width: 14 }, { width: 10 }];
   info.addRow(['荒谷町 会計帳簿（アプリから書き出し）']).font = { bold: true, size: 14 };
@@ -1276,6 +1443,113 @@ function writeKessanSheet(ws, year, accs) {
   }
 }
 
+// 行事参加者名簿：行＝人、列＝作業。セルは金額（日当×日数）、〇は 0
+function writeRosterSheet(ws, year, w) {
+  const events = sortedEvents(w);
+  const people = wagePeople(w);
+  const accIds = [...new Set(events.map(ev => ev.account))];
+  const c0 = 3, cEnd = c0 + events.length - 1;
+  const col = n => ws.getColumn(n).letter;
+  ws.getColumn(1).width = 4; ws.getColumn(2).width = 14;
+  for (let c = c0; c <= cEnd + accIds.length + 1; c++) ws.getColumn(c).width = 11;
+  ws.getCell(1, 2).value = `令和${reiwa(year)}年度　行事参加者名簿（日当 ${yenAlways(w.rate)}円）`;
+  ws.getCell(1, 2).font = { bold: true, size: 13 };
+  events.forEach((ev, i) => {
+    const c = c0 + i;
+    ws.getCell(2, c).value = ev.name;
+    ws.getCell(3, c).value = ev.time || null;
+    ws.getCell(4, c).value = `${Number(ev.date.slice(5, 7))}月${Number(ev.date.slice(8, 10))}日`;
+    ws.getCell(5, c).value = accountById(ev.account).name;
+  });
+  ws.getCell(5, 2).value = '払う会計';
+  accIds.forEach((a, i) => { ws.getCell(2, cEnd + 1 + i).value = accountById(a).name; });
+  ws.getCell(2, cEnd + accIds.length + 1).value = '合　計';
+  for (let r = 2; r <= 5; r++) for (let c = 1; c <= cEnd + accIds.length + 1; c++) {
+    const cell = ws.getCell(r, c);
+    cell.alignment = { horizontal: 'center', wrapText: true }; cell.border = border;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F5' } };
+  }
+  let r = 6;
+  const first = r;
+  people.forEach((n, i) => {
+    ws.getCell(r, 1).value = i + 1;
+    ws.getCell(r, 2).value = n;
+    events.forEach((ev, j) => {
+      const v = (w.marks[ev.id] || {})[n];
+      if (v) ws.getCell(r, c0 + j).value = markDays(v) * w.rate;
+    });
+    const range = `${col(c0)}${r}:${col(cEnd)}${r}`;
+    const p = wagePerson(w, n);
+    accIds.forEach((a, k) => {
+      ws.getCell(r, cEnd + 1 + k).value = { formula: `SUMIF($${col(c0)}$5:$${col(cEnd)}$5,"${accountById(a).name}",${range})`, result: p.byAccount[a] || 0 };
+    });
+    ws.getCell(r, cEnd + accIds.length + 1).value = { formula: `SUM(${range})`, result: p.amount };
+    for (let c = 1; c <= cEnd + accIds.length + 1; c++) { ws.getCell(r, c).border = border; if (c >= c0) ws.getCell(r, c).numFmt = '#,##0'; }
+    r++;
+  });
+  ws.getCell(r, 2).value = '合計';
+  events.forEach((ev, j) => {
+    const L = col(c0 + j);
+    ws.getCell(r, c0 + j).value = { formula: `COUNT(${L}${first}:${L}${r - 1})&"人"`, result: `${Object.values(w.marks[ev.id] || {}).filter(Boolean).length}人` };
+  });
+  const totals = wageAccountTotals(w);
+  accIds.forEach((a, k) => {
+    const L = col(cEnd + 1 + k);
+    ws.getCell(r, cEnd + 1 + k).value = { formula: `SUM(${L}${first}:${L}${r - 1})`, result: totals[a] || 0 };
+  });
+  const LT = col(cEnd + accIds.length + 1);
+  ws.getCell(r, cEnd + accIds.length + 1).value = { formula: `SUM(${LT}${first}:${LT}${r - 1})`, result: Object.values(totals).reduce((s, v) => s + v, 0) };
+  ws.getRow(r).font = { bold: true };
+  for (let c = 1; c <= cEnd + accIds.length + 1; c++) { ws.getCell(r, c).border = border; ws.getCell(r, c).numFmt = '#,##0'; }
+}
+
+// 賃金集計表：1人ずつ、内訳（2件ずつ横に並べる）・合計・受領印
+function writeWageSheet(ws, year, w) {
+  ws.columns = [{ width: 2 }, { width: 15 }, { width: 2 }, { width: 22 }, { width: 7 }, { width: 22 }, { width: 7 }, { width: 13 }, { width: 10 }];
+  ws.mergeCells('B1:I1');
+  ws.getCell('B1').value = `令和${reiwa(year)}年度賃金集計表`;
+  ws.getCell('B1').font = { bold: true, size: 15 };
+  ws.getCell('B1').alignment = { horizontal: 'center' };
+  let r = 3;
+  for (const n of wagePeople(w)) {
+    const p = wagePerson(w, n);
+    if (!p.items.length) continue;
+    ws.getCell(r, 2).value = `令和${reiwa(year)}年度賃金`;
+    ws.getCell(r, 2).font = { size: 9 };
+    r++;
+    ws.getCell(r, 2).value = n;
+    ws.getCell(r, 2).font = { bold: true, size: 12 };
+    ws.mergeCells(r, 4, r, 7);
+    ws.getCell(r, 4).value = '内　　　訳';
+    ws.getCell(r, 8).value = '合計（円）';
+    ws.getCell(r, 9).value = '受領印';
+    for (const c of [2, 4, 8, 9]) ws.getCell(r, c).alignment = { horizontal: 'center' };
+    for (let c = 2; c <= 9; c++) if (c !== 3) ws.getCell(r, c).border = border;
+    r++;
+    const lines = Math.max(2, Math.ceil(p.items.length / 2)); // 受領印が押せる高さを確保
+    const start = r, end = r + lines - 1;
+    p.items.forEach((x, i) => {
+      const rr = start + Math.floor(i / 2), c = i % 2 ? 6 : 4;
+      ws.getCell(rr, c).value = eventLabel(x.ev);
+      ws.getCell(rr, c + 1).value = x.days;
+      ws.getCell(rr, c + 1).numFmt = 'General"日"';
+      ws.getCell(rr, c + 1).alignment = { horizontal: 'right' };
+    });
+    ws.getCell(start, 2).value = `＠${yenAlways(w.rate)}／日`;
+    ws.getCell(start, 2).font = { size: 9 };
+    ws.getCell(start, 8).value = { formula: `SUM(E${start}:E${end},G${start}:G${end})*${w.rate}`, result: p.amount };
+    ws.getCell(start, 8).numFmt = '#,##0';
+    ws.getCell(start, 8).font = { bold: true, size: 13 };
+    ws.mergeCells(start, 2, end, 2); ws.mergeCells(start, 8, end, 8); ws.mergeCells(start, 9, end, 9);
+    for (const c of [2, 8, 9]) ws.getCell(start, c).alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let rr = start; rr <= end; rr++) {
+      ws.getRow(rr).height = 22;
+      for (let c = 2; c <= 9; c++) if (c !== 3) ws.getCell(rr, c).border = border;
+    }
+    r = end + 2;
+  }
+}
+
 function cellText(v) {
   if (v == null) return '';
   if (typeof v === 'object') {
@@ -1386,6 +1660,13 @@ function renderHelp(main) {
       <li>iPhone の Claude に、写真と「お願い文」を送る</li>
       <li>Claude の答えをコピーして、LINE やメールでパソコンに送る</li>
       <li>「📷 写真から」に貼り付けて「読み取る」→「帳簿に書き込む」</li>
+    </ol>
+
+    <h3>👷 賃金</h3>
+    <ol>
+      <li>作業（行事）を追加する（日付・作業名・払う会計）</li>
+      <li>名簿で一人ずつ日数を選ぶ（〇＝参加のみ、賃金なし）</li>
+      <li>「帳簿に書き込む」を押す。賃金集計表は Excel に出ます</li>
     </ol>
 
     <h3>🏦 通帳と合わせる</h3>
