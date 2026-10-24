@@ -19,3 +19,6 @@ Thumbs.db
 .vscode/
 .idea/
 node_modules/
+
+# 支払いアプリのバックアップ（金額が入っています）
+shiharai_*.json

@@ -6,6 +6,8 @@
 > 🧾 **体験会の精算アプリ** も同じ場所にあります → `taikenkai/` フォルダ（URL の最後に `/taikenkai/` を付けて開きます）。詳しくは [taikenkai/README.md](taikenkai/README.md)
 >
 > 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
+>
+> 📅 **毎月の支払いアプリ** も同じ場所にあります → `shiharai/` フォルダ（URL の最後に `/shiharai/` を付けて開きます）。詳しくは [shiharai/README.md](shiharai/README.md)
 
 ---
 
