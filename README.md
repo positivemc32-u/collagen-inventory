@@ -6,6 +6,8 @@
 > 🧾 **体験会の精算アプリ** も同じ場所にあります → `taikenkai/` フォルダ（URL の最後に `/taikenkai/` を付けて開きます）。詳しくは [taikenkai/README.md](taikenkai/README.md)
 >
 > 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
+>
+> 🔊 **読み上げ・文字起こしアプリ** も同じ場所にあります → `yomiage/` フォルダ（URL の最後に `/yomiage/` を付けて開きます）。詳しくは [yomiage/README.md](yomiage/README.md)
 
 ---
 
