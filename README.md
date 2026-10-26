@@ -7,6 +7,8 @@
 >
 > 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
 >
+> 🧾 **経費レシートアプリ（弥生用）** も同じ場所にあります → `keihi/` フォルダ（URL の最後に `/keihi/` を付けて開きます）。レシートを撮影して、やよいの青色申告用の CSV と Excel にします。詳しくは [keihi/README.md](keihi/README.md)
+>
 > 🔊 **読み上げ・文字起こしアプリ** も同じ場所にあります → `yomiage/` フォルダ（URL の最後に `/yomiage/` を付けて開きます）。詳しくは [yomiage/README.md](yomiage/README.md)
 
 ---
