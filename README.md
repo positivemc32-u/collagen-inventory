@@ -57,7 +57,7 @@ GitHub のリポジトリ画面で「Pull requests」→ 該当のプルリク�
 4. 「Build and deployment」の **Source** を **「Deploy from a branch」** にする
 5. **Branch** を **`main`**、フォルダを **`/ (root)`** にして **Save** を押す
 6. 1〜3分待ってページを再読み込みすると、上の方に
-   `Your site is live at https://（ユーザー名）.github.io/collagen-inventory/`
+   `Your site is live at https://positivemc32-u.github.io/collagen-inventory/`
    と表示されます。これがアプリのURLです。
 
 > 💡 **リポジトリが Private（非公開）の場合**：GitHub の無料プランでは、Private リポジトリで GitHub Pages は使えません。

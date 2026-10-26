@@ -2,7 +2,7 @@
 
 携帯でもパソコンでも使えるリマインダーです。**声でも文字でも** 入れられます。
 
-- URL：`https://（ユーザー名）.github.io/collagen-inventory/remind/`
+- URL：**https://positivemc32-u.github.io/collagen-inventory/remind/**
   （コラーゲン管理アプリと同じ GitHub Pages の中にあります。main に取り込めば自動で公開されます）
 - 携帯ではホーム画面に追加すると、アプリのように使えます（方法は上のフォルダの README と同じです）
 
