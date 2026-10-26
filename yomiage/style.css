@@ -88,9 +88,28 @@ button.primary { background: var(--primary); border-color: var(--primary); color
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .small-btns button, .small-btns .file-btn { font-size: .9rem; padding: 7px 10px; }
 
-/* 声のボタン */
-.voice-group { margin-bottom: 10px; }
-.voice-group h3 { font-size: .9rem; margin: 0 0 6px; color: var(--muted); }
+/* 話し方（標準語・関西弁） */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.seg button { padding: 12px; font-weight: 700; }
+.seg button.selected { border: 2px solid var(--primary); background: var(--primary-soft); color: var(--primary); }
+
+/* 声のボタン（種類ごとに色分け） */
+.voice-group { margin-bottom: 12px; border-left: 4px solid var(--g); padding-left: 10px; }
+.voice-group h3 { font-size: .98rem; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+.voice-group .g-icon { font-size: 1.3rem; }
+.voice-group .g-note { font-size: .8rem; color: var(--muted); margin: 0 0 6px; }
+.g-male { --g: #3a6ea5; }
+.g-female { --g: #c2577a; }
+.g-anime { --g: #e39a2d; }
+.g-obachan { --g: #8a5cc2; }
+.g-obachan .voice-grid { grid-template-columns: 1fr; }
+.voice-btn.selected { border-color: var(--g) !important; }
+.now-voice { font-size: .85rem; margin-bottom: 6px; }
+.preview { margin-top: 10px; font-size: .9rem; }
+.preview summary { cursor: pointer; color: var(--primary); }
+.preview div { white-space: pre-wrap; background: var(--bg); border-radius: 8px; padding: 8px; margin-top: 6px; max-height: 30vh; overflow-y: auto; }
+.howto { padding-left: 18px; margin: 8px 0 0; font-size: .85rem; }
+.howto li { margin-bottom: 6px; }
 .voice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .voice-btn { flex-direction: column; padding: 8px 4px; line-height: 1.3; min-height: 62px; }
 .voice-btn .v-name { font-weight: 700; }
