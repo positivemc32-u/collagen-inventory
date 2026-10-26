@@ -32,6 +32,10 @@ const BUILTIN = [
     prompt: '日本の四季・季節のニュース。天気、桜や紅葉、旬、季節の行事、自然の話題（今日の時期に合ったもの）' },
   { id: 'sekki', emoji: '🌗', title: '二十四節気・七十二候', c1: '#2b5f7a', c2: '#0a2230', auto: true },
   { id: 'fortune', emoji: '🔮', title: '今日の占い・運気', c1: '#4a3a8a', c2: '#120c30', auto: true },
+  { id: 'spiritual', emoji: '🔯', title: 'スピリチュアル（世界・日本）', c1: '#6a3d8f', c2: '#1d0f2e', count: 6,
+    prompt: 'スピリチュアルの話題を、世界から3件・日本から3件。それぞれ「今話題になっているもの」を中心に、季節の行事・言い伝えなど定番の話も混ぜる。各記事に region（"世界" か "日本"）を付ける。効果を断定せず「〜とされる」「〜と言われる」と書く' },
+  { id: 'legend', emoji: '👻', title: '都市伝説（世界・日本）', c1: '#3d4a5c', c2: '#0e141c', count: 6,
+    prompt: '都市伝説の話題を、世界から3件・日本から3件。今話題になっているもの（テレビ・SNS・ファクトチェックで取り上げられたもの）を中心に、定番の都市伝説や「実は本当だった話」も混ぜる。各記事に region（"世界" か "日本"）を付ける。真偽がわかっているものはそれも書き、デマを事実のように書かない' },
   { id: 'nutrition', emoji: '💊', title: '分子栄養学・オーソモレキュラー', c1: '#2f6f86', c2: '#0b2833', count: 4,
     prompt: '分子栄養学・オーソモレキュラー・栄養素（ビタミン、ミネラル、脂肪酸など）に関する最近の研究やニュース。エビデンスの強さも一言添えて' },
 ];
@@ -269,10 +273,9 @@ function renderCard(sec, it, i) {
   card.dataset.idx = i;
   const srcs = (it.sources || []).filter((s) => safeUrl(s.url))
     .map((s) => `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.name || s.url)}</a>`).join('、');
-  const asOf = it.asOf ? jpDate(it.asOf) : '';
   card.innerHTML =
     `<div class="banner" style="--c1:${sec.c1};--c2:${sec.c2}">` +
-      `<span class="banner-tag">${esc(sec.emoji || '📌')} #${i + 1}${asOf ? `　${esc(asOf)}` : ''}</span>` +
+      `<span class="banner-tag">${esc(sec.emoji || '📌')} #${i + 1}${it.region ? `　${it.region === '日本' ? '🗾' : '🌍'} ${esc(it.region)}` : ''}${it.asOf ? `　${Number(it.asOf.slice(5, 7))}/${Number(it.asOf.slice(8, 10))}` : ''}</span>` +
       `<div class="kg-stage">${kurageHTML()}</div>` +
       `<div class="telop">${esc(it.telop || it.title)}</div>` +
     `</div>` +
@@ -416,7 +419,7 @@ function voiceSetting(kind) {
 }
 
 function speechText(sec, it) {
-  const parts = [`${sec.title}。`, it.title + '。'];
+  const parts = [`${sec.title}。`, (it.region ? `${it.region}の話題。` : '') + it.title + '。'];
   if (it.summary) parts.push(it.summary);
   if (it.detail) parts.push(it.detail);
   if (it.talk && state.readTalk) parts.push('話すときは、' + it.talk);
