@@ -1,7 +1,7 @@
 // オフラインでも開けるように、アプリ本体（画面のファイル）だけを保存しておく仕組みです。
 // 支払いの記録はここでは扱いません（ブラウザの localStorage に保存されています）。
 // アプリを更新したときは CACHE_NAME の数字を上げると確実に反映されます。
-const CACHE_NAME = 'shiharai-app-v1';
+const CACHE_NAME = 'shiharai-app-v2';
 const FILES = [
   './',
   './index.html',

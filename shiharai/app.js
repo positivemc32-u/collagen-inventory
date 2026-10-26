@@ -45,7 +45,9 @@ function cardSelect(name, value, extra = '') {
   </select>`;
 }
 function kindSelect(name, value) {
-  return `<select name="${name}">${KINDS.map((k) => `<option ${k === value ? 'selected' : ''}>${k}</option>`).join('')}</select>`;
+  // 前に使っていた種類（今の一覧にないもの）も選べるように残す
+  const kinds = value && !KINDS.includes(value) ? [...KINDS, value] : KINDS;
+  return `<select name="${name}">${kinds.map((k) => `<option ${k === value ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>`;
 }
 function daySelect(name, value) {
   let o = '';
@@ -54,7 +56,7 @@ function daySelect(name, value) {
 }
 
 function addAccount() {
-  const name = (prompt('追加する銀行（口座）の名前\n例：北陸銀行 和子 2') || '').trim();
+  const name = (prompt('追加する銀行（口座）の名前\n例：○○銀行 本人') || '').trim();
   if (!name) return '';
   const a = { id: uid(), name };
   db.accounts.push(a);
@@ -63,7 +65,7 @@ function addAccount() {
   return a.id;
 }
 function addCard() {
-  const name = (prompt('追加するカードの名前\n例：イオンカード 浩太郎') || '').trim();
+  const name = (prompt('追加するカードの名前\n例：○○カード 本人') || '').trim();
   if (!name) return '';
   const c = { id: uid(), name, accountId: '' };
   db.cards.push(c);
@@ -73,14 +75,16 @@ function addCard() {
 }
 
 // ---------- 全体の描画 ----------
-const TITLES = { schedule: '支払いの予定', banks: '通帳と差額', settings: '設定' };
+const TITLES = { schedule: '支払いの予定', banks: '通帳と差額', backup: 'バックアップ', settings: '設定' };
+const RESTORE_UNDO_KEY = STORAGE_KEY + '-before-restore';
 
 function render() {
   $('#pageTitle').textContent = TITLES[state.tab];
   $('#monthLabel').textContent = monthJa(state.month);
-  $('.month-nav').hidden = state.tab === 'settings';
+  $('.month-nav').hidden = state.tab === 'settings' || state.tab === 'backup';
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
-  ({ schedule: renderSchedule, banks: renderBanks, settings: renderSettings })[state.tab]();
+  ({ schedule: renderSchedule, banks: renderBanks, backup: renderBackup, settings: renderSettings })[state.tab]();
+  renderNotices();
   if (state.tab !== render.lastTab) window.scrollTo(0, 0);
   render.lastTab = state.tab;
 }
@@ -106,6 +110,7 @@ function renderSchedule() {
       <div class="total-value">${yen(sum.total)}</div>
       <div class="total-sub">まだの分 ${yen(sum.unpaid)}　／　済み ${yen(sum.total - sum.unpaid)}</div>
     </div>
+    ${!db.accounts.length ? `<div class="notice">🏦 はじめに「⚙️ 設定」で、使っている銀行（口座）とカードを入れてください。入れた内容はこの端末の中だけに保存されます。</div>` : ''}
     ${sum.unassigned.length ? `<div class="notice">⚠️ 口座が決まっていない支払いが ${sum.unassigned.length} 件あります。口座を選ぶと「🏦 通帳・差額」で計算されます。</div>` : ''}
 
     ${groups.length ? groups.map((g) => {
@@ -285,14 +290,6 @@ function renderSettings() {
       <button type="button" class="btn small" data-act="newTmpl">＋ 毎月の支払いを足す</button>
     </section>
 
-    <section class="panel">
-      <h2>💾 バックアップ</h2>
-      <span class="hint">データはこの携帯（ブラウザ）の中にだけ保存されます。ときどき書き出して保存してください。</span>
-      <div class="row-actions">
-        <button type="button" class="btn" data-act="export">⬇ 書き出す</button>
-        <label class="btn file-btn">⬆ 読み込む<input type="file" id="importFile" accept=".json,application/json" hidden></label>
-      </div>
-    </section>
   `;
 }
 
@@ -313,7 +310,7 @@ main.addEventListener('focusin', (e) => { if (e.target.tagName === 'SELECT') e.t
 
 main.addEventListener('change', (e) => {
   const el = e.target;
-  if (el.id === 'importFile') return importJson(el.files[0]);
+  if (el.id === 'importFile') { const f = el.files[0]; el.value = ''; return importBackup(f); }
   let v = el.value;
   if (v === '__new') {
     v = pickNew(el, el.name.toLowerCase().includes('card') && el.name !== 'cardAccount' ? 'card' : 'account');
@@ -384,9 +381,11 @@ main.addEventListener('change', (e) => {
 document.addEventListener('click', (e) => {
   const tabBtn = e.target.closest('.tabbar button');
   if (tabBtn) { state.tab = tabBtn.dataset.tab; return render(); }
+  const go = e.target.closest('[data-go]');
+  if (go) { state.tab = go.dataset.go; return render(); }
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
-  const m = state.tab === 'settings' ? null : mon();
+  const m = state.tab === 'settings' || state.tab === 'backup' ? null : mon();
   const it = findItem(btn);
 
   switch (btn.dataset.act) {
@@ -445,15 +444,16 @@ document.addEventListener('click', (e) => {
       persist();
       break;
     }
-    case 'export': exportJson(); return;
+    case 'backup-download': downloadFile(backupFile()); markBackup('download'); toast('この端末に保存しました'); return;
+    case 'backup-share': backupShare(); return;
+    case 'restore-undo': restoreUndo(); return;
     default: return;
   }
   render();
 });
 
 // ---------- バックアップ ----------
-function exportJson() {
-  const file = new File([JSON.stringify(db, null, 1)], 'shiharai_' + todayStr() + '.json', { type: 'application/json' });
+function downloadFile(file) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(file);
   a.download = file.name;
@@ -462,16 +462,116 @@ function exportJson() {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
-function importJson(file) {
+// 14日以上バックアップしていないと、画面の上にお知らせを出す
+function renderNotices() {
+  const box = $('#notices');
+  const used = Object.keys(db.months).length > 0 && db.accounts.length > 0;
+  const days = db.lastBackup ? (Date.now() - new Date(db.lastBackup).getTime()) / 86400000 : Infinity;
+  box.innerHTML = used && days > 14 && state.tab !== 'backup'
+    ? `<div class="notice">💾 ${db.lastBackup ? Math.floor(days) + '日' : 'まだ一度も'}バックアップしていません。<button type="button" class="link" data-go="backup">バックアップする</button></div>`
+    : '';
+}
+
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+const LOG_LABEL = { download: '📥 この端末に保存', share: '📤 共有メニューで送った', restore: '📂 読み込んだ', undo: '↩️ 読み込む前に戻した' };
+
+function hasRestoreUndo() {
+  try { return !!localStorage.getItem(RESTORE_UNDO_KEY); } catch (e) { return false; }
+}
+
+function renderBackup() {
+  const months = Object.keys(db.months).sort();
+  main.innerHTML = `
+    <section class="panel">
+      <h2>💾 バックアップ・他の端末へ移す</h2>
+      <span class="hint">銀行・カード・毎月の支払い（ひな形）・月ごとの記録（金額・通帳の残高など）を、まるごと1つのファイル（.json）にします。機種変更や、パソコンと携帯で同じデータを使うときは、片方で書き出したファイルをもう片方で読み込んでください。</span>
+      <div class="backup-now">
+        <div>いまのデータ：<b>銀行 ${db.accounts.length}・カード ${db.cards.length}・記録 ${months.length}か月分</b>${months.length ? `（${monthJa(months[0])}〜${monthJa(months[months.length - 1])}）` : ''}</div>
+        <div>最後のバックアップ：<b>${db.lastBackup ? esc(fmtDateTime(db.lastBackup)) : 'まだありません'}</b></div>
+      </div>
+      <button type="button" class="btn primary block" data-act="backup-download">📥 バックアップをこの端末に保存</button>
+      ${navigator.share ? '<button type="button" class="btn block" data-act="backup-share">📤 共有メニューから保存・送る（"ファイル"・iCloud・LINEなど）</button>' : ''}
+      <span class="hint">🔒 ファイルには銀行の名前や残高が入っています。自分だけが見られる場所（iPhone の「ファイル」、iCloud Drive、Google ドライブなど）に保存してください。GitHub には入れないでください。</span>
+    </section>
+    <section class="panel">
+      <h2>📂 バックアップから戻す</h2>
+      <span class="hint">読み込むと、今この端末にあるデータがファイルの内容に置き換わります（読み込む前の状態は1回分とっておくので、すぐ元に戻せます）。</span>
+      <label class="btn block file-btn">📂 バックアップファイルを選ぶ<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+      ${hasRestoreUndo() ? '<button type="button" class="btn block" data-act="restore-undo">↩️ 読み込む前の状態に戻す</button>' : ''}
+    </section>
+    <section class="panel">
+      <h2>📚 バックアップの履歴</h2>
+      ${db.backupLog.length ? `<table class="result">
+        <tr><th>日時</th><th>したこと</th><th class="num">中身</th></tr>
+        ${db.backupLog.map((l) => `<tr><td>${esc(fmtDateTime(l.at))}</td><td>${esc(LOG_LABEL[l.type] || l.type)}${l.from ? `<br><small>${esc(l.from)}</small>` : ''}</td><td class="num">${l.months}か月分<br><small>銀行 ${l.accounts}</small></td></tr>`).join('')}
+      </table>` : '<p class="empty small">まだありません</p>'}
+    </section>`;
+}
+
+function backupFile() {
+  const d = new Date();
+  const stamp = todayStr().replace(/-/g, '') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+  return new File([backupJson(db)], 'shiharai-backup-' + stamp + '.json', { type: 'application/json' });
+}
+
+function markBackup(type) {
+  db.lastBackup = new Date().toISOString();
+  addBackupLog(db, { type });
+  persist();
+  render();
+}
+
+async function backupShare() {
+  const file = backupFile();
+  if (navigator.canShare && !navigator.canShare({ files: [file] })) { downloadFile(file); markBackup('download'); toast('この端末に保存しました'); return; }
+  try {
+    await navigator.share({ files: [file], title: '支払い バックアップ' });
+    markBackup('share');
+    toast('バックアップしました');
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    downloadFile(file);
+    markBackup('download');
+    toast('共有できなかったので、この端末に保存しました');
+  }
+}
+
+async function importBackup(file) {
   if (!file) return;
-  file.text().then((txt) => {
-    const data = normalizeDb(JSON.parse(txt));
-    if (!confirm('読み込むと、いまのデータは置きかわります。よろしいですか？')) return;
-    db = data;
+  try {
+    const { db: next, exportedAt } = parseBackup(await file.text());
+    const when = exportedAt ? fmtDateTime(exportedAt) + ' に書き出した' : '';
+    if (!confirm(`${when}バックアップを読み込みます。\n銀行 ${next.accounts.length}・カード ${next.cards.length}・記録 ${Object.keys(next.months).length}か月分\n\n今この端末にあるデータは置き換わります。よろしいですか？`)) return;
+    try { localStorage.setItem(RESTORE_UNDO_KEY, JSON.stringify(db)); } catch (err) { /* 容量不足でも読み込みは続ける */ }
+    next.lastBackup = db.lastBackup;
+    next.backupLog = db.backupLog;
+    db = next;
+    addBackupLog(db, { type: 'restore', from: file.name });
     persist();
     toast('読み込みました');
     render();
-  }).catch(() => alert('読み込めませんでした（このアプリで書き出したファイルを選んでください）'));
+  } catch (err) {
+    alert('読み込めませんでした：' + err.message);
+  }
+}
+
+function restoreUndo() {
+  let prev = null;
+  try { prev = JSON.parse(localStorage.getItem(RESTORE_UNDO_KEY)); } catch (e) { prev = null; }
+  if (!prev) { toast('戻せるデータがありません'); return; }
+  if (!confirm('読み込む前の状態に戻しますか？')) return;
+  const log = db.backupLog;
+  db = normalizeDb(prev);
+  db.backupLog = log;
+  addBackupLog(db, { type: 'undo' });
+  persist();
+  try { localStorage.removeItem(RESTORE_UNDO_KEY); } catch (e) { /* 消せなくても困らない */ }
+  toast('元に戻しました');
+  render();
 }
 
 render();

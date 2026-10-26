@@ -5,31 +5,21 @@
 
 const STORAGE_KEY = 'shiharai-v1';
 
-// 出入りの銀行（「⚙️ 設定」で追加・名前の変更・削除ができます）
-const DEFAULT_ACCOUNTS = [
-  { id: 'ja-kazuko', name: 'JA 和子' },
-  { id: 'ja-kotaro', name: 'JA 浩太郎' },
-  { id: 'hokuriku-kazuko', name: '北陸銀行 和子' },
-  { id: 'hokuriku-kotaro', name: '北陸銀行 浩太郎' },
-  { id: 'hokkoku-kotaro', name: '北國銀行 浩太郎' },
-  { id: 'yucho-kazuko-private', name: 'ゆうちょ銀行 和子プライベート' },
-  { id: 'yucho-kazuko-work', name: 'ゆうちょ銀行 和子仕事' },
-];
+// ⚠️ 家族の名前・銀行やカードの名前・取引先などの個人情報は、このファイルに書かないでください。
+//    このファイルは GitHub で公開されています。銀行・カード・毎月の支払いは「⚙️ 設定」で入れ、
+//    入れた内容はこの端末のブラウザの中だけに保存されます。
+
+// 出入りの銀行（最初は空。「⚙️ 設定」や選ぶ欄の「＋ 銀行を追加…」で足します）
+const DEFAULT_ACCOUNTS = [];
 
 // カード（引き落とし口座を決めておくと、支払いで選んだときに自動で入ります）
-const DEFAULT_CARDS = [
-  { id: 'aeon-kazuko', name: 'イオンカード 和子', accountId: '' },
-  { id: 'rakuten-kazuko', name: '楽天カード 和子', accountId: '' },
-];
+const DEFAULT_CARDS = [];
 
 // 毎月の支払い（ひな形）。新しい月を開くと、ここから今月の予定が作られます
-const KINDS = ['家賃', 'カード', 'キャッシング', 'シナリー', 'その他'];
+const KINDS = ['家賃', 'カード', 'キャッシング', '仕入れ', 'その他'];
 const DEFAULT_TEMPLATE = [
-  { id: 't-shinary', day: 10, name: 'シナリー支払い', kind: 'シナリー', accountId: '', cardId: '', amount: 0 },
-  { id: 't-rent-part', day: 25, name: '家賃（一部）', kind: '家賃', accountId: '', cardId: '', amount: 0 },
-  { id: 't-card-aeon', day: 27, name: 'カード決済', kind: 'カード', accountId: '', cardId: 'aeon-kazuko', amount: 0 },
-  { id: 't-card-rakuten', day: 27, name: 'カード決済', kind: 'カード', accountId: '', cardId: 'rakuten-kazuko', amount: 0 },
   { id: 't-rent', day: 27, name: '家賃', kind: '家賃', accountId: '', cardId: '', amount: 0 },
+  { id: 't-card', day: 27, name: 'カード決済', kind: 'カード', accountId: '', cardId: '', amount: 0 },
 ];
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -45,6 +35,8 @@ function defaultDb() {
     cards: clone(DEFAULT_CARDS),
     template: clone(DEFAULT_TEMPLATE),
     months: {}, // 'YYYY-MM' → { items: [支払い], balances: {口座id: 通帳の残高}, deposits: {口座id: 入金する額}, cashing: [その月にキャッシングした分] }
+    lastBackup: null, // 最後にバックアップを書き出した日時
+    backupLog: [], // バックアップ・読み込みの履歴（新しい順、最大50件）
   };
 }
 
@@ -66,7 +58,33 @@ function normalizeDb(db) {
     cards: Array.isArray(db.cards) ? db.cards : def.cards,
     template: Array.isArray(db.template) ? db.template : def.template,
     months: db.months && typeof db.months === 'object' ? db.months : {},
+    lastBackup: db.lastBackup || null,
+    backupLog: Array.isArray(db.backupLog) ? db.backupLog : [],
   };
+}
+
+// ---------- バックアップ（.json ファイル） ----------
+// 銀行・カード・ひな形・月ごとの記録をまるごと1つのファイルにします（バックアップの履歴自体は入れません）。
+const BACKUP_KIND = 'shiharai-backup';
+
+function backupJson(db) {
+  const { backupLog, lastBackup, ...rest } = db;
+  return JSON.stringify({ kind: BACKUP_KIND, version: 1, exportedAt: new Date().toISOString(), db: rest }, null, 1);
+}
+
+// 読み込んだファイルを確かめて、アプリで使える形にする（おかしいときはエラー）
+function parseBackup(text) {
+  let d;
+  try { d = JSON.parse(text); } catch (e) { throw new Error('ファイルの形がちがいます（支払いアプリのバックアップを選んでください）'); }
+  // 以前の「⬇ 書き出す」で作ったファイル（中身がそのまま）も読めるようにする
+  const src = d && d.kind === BACKUP_KIND ? d.db : d;
+  if (!src || !Array.isArray(src.accounts) || !src.months || typeof src.months !== 'object') throw new Error('支払いアプリのバックアップではありません');
+  return { db: normalizeDb(src), exportedAt: (d && d.exportedAt) || null };
+}
+
+function addBackupLog(db, entry) {
+  db.backupLog.unshift({ at: new Date().toISOString(), months: Object.keys(db.months).length, accounts: db.accounts.length, ...entry });
+  db.backupLog = db.backupLog.slice(0, 50);
 }
 
 function saveDb(db) {
