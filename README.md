@@ -7,6 +7,8 @@
 >
 > 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
 >
+> 📈 **わたしの株ニュース** も同じ場所にあります → `kabu/` フォルダ（URL の最後に `/kabu/` を付けて開きます）。毎朝自動で更新される、初心者向けの株・経済ニュースです。予算（最初は5万円）に合わせて「何株買えるか」も計算します。更新の仕組みは [kabu/UPDATE.md](kabu/UPDATE.md)
+>
 > 🧾 **経費レシートアプリ（弥生用）** も同じ場所にあります → `keihi/` フォルダ（URL の最後に `/keihi/` を付けて開きます）。レシートを撮影して、やよいの青色申告用の CSV と Excel にします。詳しくは [keihi/README.md](keihi/README.md)
 
 ---
