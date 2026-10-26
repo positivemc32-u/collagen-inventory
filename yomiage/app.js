@@ -11,7 +11,7 @@ const synth = window.speechSynthesis;
 
 // ---------- 保存しておく設定 ----------
 const settings = Object.assign(
-  { presetId: 'f1', rate: 1, dict: [], tuning: {}, period: true },
+  { presetId: 'f1', rate: 1, dict: [], tuning: {}, period: true, lisp: true },
   loadSettings()
 );
 function loadSettings() {
@@ -30,7 +30,7 @@ function toast(msg) {
 }
 
 // =============================================================
-// 声（男性・女性・子ども 各3種類）
+// 声（男性・女性・アニメの子ども役 各3種類）
 // 端末に入っている日本語の声をもとに、声の高さと話す速さを変えて作ります。
 // =============================================================
 const PRESETS = [
@@ -40,16 +40,16 @@ const PRESETS = [
   { id: 'f1', group: '女性', name: '女性1', desc: 'ふつうの声', gender: 'female', slot: 0, pitch: 1.0, rate: 1.0 },
   { id: 'f2', group: '女性', name: '女性2', desc: '明るく高い声', gender: 'female', slot: 1, pitch: 1.2, rate: 1.05 },
   { id: 'f3', group: '女性', name: '女性3', desc: '落ち着いた声', gender: 'female', slot: 2, pitch: 0.88, rate: 0.95 },
-  { id: 'c1', group: '子ども（5歳くらい）', name: '子ども1', desc: '元気な子', gender: 'child', slot: 0, pitch: 1.65, rate: 1.05 },
-  { id: 'c2', group: '子ども（5歳くらい）', name: '子ども2', desc: 'かわいい子', gender: 'child', slot: 1, pitch: 1.85, rate: 0.95 },
-  { id: 'c3', group: '子ども（5歳くらい）', name: '子ども3', desc: 'おっとりした子', gender: 'child', slot: 2, pitch: 1.5, rate: 0.88 },
+  // アニメで女性の声優さんが演じる、舌足らずな子ども役のイメージ（高い声＋「です→でしゅ」の話し方）
+  { id: 'a1', group: 'アニメの子ども役（舌足らず）', name: 'アニメ1', desc: '甘えんぼ', gender: 'anime', slot: 0, pitch: 1.75, rate: 0.9 },
+  { id: 'a2', group: 'アニメの子ども役（舌足らず）', name: 'アニメ2', desc: '元気いっぱい', gender: 'anime', slot: 1, pitch: 1.6, rate: 1.05 },
+  { id: 'a3', group: 'アニメの子ども役（舌足らず）', name: 'アニメ3', desc: 'おっとり', gender: 'anime', slot: 2, pitch: 1.5, rate: 0.85 },
 ];
 const presetById = (id) => PRESETS.find((p) => p.id === id) || PRESETS[3];
 
 // 声の名前から男性・女性を見分けるための手がかり（主な端末の日本語の声）
 const MALE_RE = /otoya|ichiro|keita|daichi|naoki|masaru|hattori|takumi|kenji|hiroshi|男性|\bmale\b/i;
 const FEMALE_RE = /kyoko|o-?ren|ayumi|haruka|sayaka|nanami|mayu|shiori|mizuki|kanade|hikari|aoi|google\s*日本語|女性|female/i;
-const CHILD_RE = /aoi|child|kid|子ども|子供/i;
 
 let jaVoices = [];
 
@@ -82,10 +82,12 @@ function resolvePreset(p) {
     if (p.gender === 'male') {
       if (males.length) voice = males[p.slot % males.length];
       else { voice = jaVoices[p.slot % jaVoices.length]; fallback = true; }
-    } else if (p.gender === 'child') {
-      const kids = others.filter((v) => CHILD_RE.test(v.name));
-      const base = kids.length ? kids : (others.length ? others : jaVoices);
-      voice = base[p.slot % base.length];
+    } else if (p.gender === 'anime') {
+      // 声を高くする設定がよく効く、端末内の声を優先する
+      const base = others.length ? others : jaVoices;
+      const local = base.filter((v) => v.localService);
+      const pool = local.length ? local : base;
+      voice = pool[p.slot % pool.length];
     } else {
       const base = others.length ? others : jaVoices;
       voice = base[p.slot % base.length];
@@ -116,7 +118,6 @@ function renderVoiceGroups() {
         saveSettings();
         renderVoiceGroups();
         if (player.playing) player.restartCurrent();
-        else sample(p);
       });
       grid.appendChild(b);
     }
@@ -134,20 +135,24 @@ function renderVoiceNote() {
   const hasMale = jaVoices.some((v) => genderOf(v) === 'male');
   note.textContent = `この端末の日本語の声：${jaVoices.length}種類` +
     (hasMale ? '' : '（男性の声がないため、声を低くして男性の声にしています）') +
-    '。ボタンを押すと試し聞きできます。';
+    '。「🔊 試し聞き」で、入れた文章の最初の文を読みます。';
 }
 
-const SAMPLE_TEXT = 'こんにちは。今日はいい天気ですね。';
+// 試し聞きは、入力された文章の最初の文だけを読む（書いていない言葉は読まない）
 function sample(p) {
   if (!synth) return;
+  const first = splitSentences($('ttsText').value).find((c) => hasSpeakable(cleanForSpeech(c.text)));
+  if (!first) { toast('文章を入れると、その最初の文で試し聞きできます'); return; }
+  if (player.playing) player.pause();
   synth.cancel();
-  const u = makeUtterance(SAMPLE_TEXT, p);
-  synth.speak(u);
+  synth.speak(makeUtterance(first.text, p));
 }
 
 function makeUtterance(text, p) {
   const r = resolvePreset(p);
-  const u = new SpeechSynthesisUtterance(applyDict(text));
+  let spoken = cleanForSpeech(applyDict(text));
+  if (p.gender === 'anime' && settings.lisp) spoken = lisp(spoken);
+  const u = new SpeechSynthesisUtterance(spoken);
   u.lang = 'ja-JP';
   if (r.voice) u.voice = r.voice;
   u.pitch = clamp(r.pitch, 0, 2);
@@ -155,6 +160,34 @@ function makeUtterance(text, p) {
   return u;
 }
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+// 書いていない言葉を読まないように、端末によっては名前で読み上げてしまう
+// 絵文字・かっこ・記号（「かぎかっこ」「ほし」など）を、読む前に取りのぞく
+function cleanForSpeech(text) {
+  return text
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]/gu, ' ')
+    .replace(/[「」『』（）()【】〔〕［］[\]｛｝{}〈〉《》≪≫"“”‘’'＂]/g, ' ')
+    .replace(/[※★☆♪♫♬■□◆◇●○◎△▲▽▼→←↑↓⇒⇔・＊*＃#＿_｜|＾^`｀〓]/g, ' ')
+    .replace(/[…‥]+/g, '、');
+}
+
+// 舌足らずな話し方：さ行・ざ行を「しゃ・しゅ・しぇ・しょ」に（です→でしゅ、さん→しゃん）
+// 漢字のすぐ後ろのかな（話す・過ごす など）は、漢字の読み方がくずれないよう変えない。
+const LISP = {
+  さ: 'しゃ', す: 'しゅ', せ: 'しぇ', そ: 'しょ', ざ: 'じゃ', ず: 'じゅ', ぜ: 'じぇ', ぞ: 'じょ',
+  サ: 'シャ', ス: 'シュ', セ: 'シェ', ソ: 'ショ', ザ: 'ジャ', ズ: 'ジュ', ゼ: 'ジェ', ゾ: 'ジョ',
+};
+function lisp(text) {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    // ただし名前の後ろの「さん・さま」は「しゃん・しゃま」にする
+    const honorific = text.startsWith('さん', i) || text.startsWith('さま', i);
+    const afterKanji = !honorific && i > 0 && /[\p{Script=Han}々]/u.test(text[i - 1]);
+    out += LISP[c] && !afterKanji ? LISP[c] : c;
+  }
+  return out;
+}
 
 // =============================================================
 // 読み方辞書（読み間違える言葉だけ、読み上げのときに置きかえる）
@@ -273,7 +306,7 @@ const player = {
       this.idx = 0;
       renderReadView();
     }
-    return this.chunks.some((c) => hasSpeakable(c.text));
+    return this.chunks.some((c) => hasSpeakable(cleanForSpeech(c.text)));
   },
 
   play() {
@@ -315,7 +348,7 @@ const player = {
   },
 
   speakCurrent() {
-    while (this.idx < this.chunks.length && !hasSpeakable(this.chunks[this.idx].text)) this.idx++;
+    while (this.idx < this.chunks.length && !hasSpeakable(cleanForSpeech(this.chunks[this.idx].text))) this.idx++;
     if (this.idx >= this.chunks.length) { this.finish(); return; }
     const token = ++this.token;
     const u = makeUtterance(this.chunks[this.idx].text, presetById(settings.presetId));
@@ -439,6 +472,14 @@ $('btnClearTts').addEventListener('click', () => {
   player.stop();
   $('ttsText').value = '';
   updateCount();
+});
+
+$('btnSample').addEventListener('click', () => sample(presetById(settings.presetId)));
+$('optLisp').checked = settings.lisp;
+$('optLisp').addEventListener('change', (e) => {
+  settings.lisp = e.target.checked;
+  saveSettings();
+  if (player.playing && presetById(settings.presetId).gender === 'anime') player.restartCurrent();
 });
 
 // ---------- 速さ ----------
