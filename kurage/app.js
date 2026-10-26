@@ -41,8 +41,9 @@ const DEFAULT_STATE = {
   hidden: {},
   custom: [],
   userItems: {},
-  // 生年月日などの個人情報はプログラムには書かず、「⚙️ 設定」で入れてもらいます（この端末の中にだけ保存）
-  birth: { date: '', time: '', place: '', lat: null, lon: null, tz: 9, placeName: '' },
+  // ⚠️ 生年月日などの個人情報はここに書かないでください（このファイルは GitHub で公開されています）。
+  //    最初は空で、「⚙️ 設定」で入れた内容はこの端末のブラウザの中だけに保存されます。
+  birth: { date: '', time: '', place: '', lat: '', lon: '', tz: 9, placeName: '' },
   voice: 'male',
   rate: 1,
   muted: false,
@@ -79,27 +80,30 @@ const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '');
 
 function today() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
 
+// 生年月日がまだ入っていないときは null（占いの代わりに「入れてください」と出す）
 function birthForCalc() {
   const b = state.birth;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || '')) return null;
   const [y, m, d] = b.date.split('-').map(Number);
-  const coord = (v) => (v === null || v === '' || v === undefined ? NaN : Number(v));
-  return { y, m, d, time: b.time || '', lat: coord(b.lat), lon: coord(b.lon), tz: Number(b.tz ?? 9), placeName: b.placeName || '' };
+  // 場所が決まっていないときは緯度・経度を使わない（アセンダントは出さない）
+  const lat = b.place ? Number(b.lat) : NaN;
+  const lon = b.place ? Number(b.lon) : NaN;
+  return { y, m, d, time: b.time || '', lat, lon, tz: Number(b.tz ?? 9), placeName: b.placeName || '' };
 }
+
+const BIRTH_PROMPT_ITEM = {
+  title: '🎂 生年月日を入れると、毎日の占いが出ます',
+  summary: '下の「🎂 生年月日を変える」か「⚙️ 設定」で、生年月日（わかれば時間と生まれた場所も）を入れてください。',
+  detail: '入れた生年月日は、この端末のブラウザの中だけに保存されます。GitHub やインターネットには載りません。',
+  talk: '生年月日を教えてくれたら、毎日の運気を見てあげるね。',
+};
 
 // ---------- 各項目の記事を集める ----------
 function itemsFor(sec) {
   const t = today();
   const todayStr = ymd(t);
   let items = [];
-  if (sec.id === 'fortune') {
-    items = state.birth.date ? KurageFortune.fortuneItems(birthForCalc(), t) : [{
-      telop: '生年月日を入れてね',
-      title: '「🎂 生年月日を変える」から、生年月日・生まれた時間・場所を入れてください',
-      summary: '入れると、西洋占星術・数秘術・九星気学と風水・クラゲの直感リーディングで、あなたの今日の運気を毎日お届けします。',
-      detail: '生年月日などはこの端末のブラウザの中にだけ保存され、インターネットには送られません。',
-      kind: 'fortune',
-    }];
-  }
+  if (sec.id === 'fortune') { const b = birthForCalc(); items = b ? KurageFortune.fortuneItems(b, t) : [{ ...BIRTH_PROMPT_ITEM }]; }
   else if (sec.id === 'sekki') items = KurageFortune.sekkiItems(t);
   else {
     const ai = aiCache.sections[sec.id];
@@ -640,7 +644,7 @@ function openSettings(focusBirth = false) {
   $('bTime').disabled = $('bTimeUnknown').checked;
   const sel = $('bPlace');
   if (!sel.options.length) {
-    sel.add(new Option('（選んでください）', ''));
+    sel.add(new Option('（生まれた場所を選ぶ）', ''));
     for (const [name] of KurageFortune.PLACES) sel.add(new Option(name, name));
     sel.add(new Option('その他（緯度・経度を自分で入れる）', 'custom'));
   }
@@ -675,15 +679,15 @@ function saveBirth() {
   const b = state.birth;
   b.date = $('bDate').value || b.date;
   b.time = $('bTimeUnknown').checked ? '' : ($('bTime').value || '');
-  if (sel === 'custom') {
+  if (sel === '') {
+    Object.assign(b, { place: '', lat: '', lon: '', tz: 9, placeName: '' });
+  } else if (sel === 'custom') {
     b.place = 'custom';
     b.lat = Number($('bLat').value) || 0;
     b.lon = Number($('bLon').value) || 0;
     b.tz = Number($('bTz').value);
     if (!isFinite(b.tz)) b.tz = 9;
     b.placeName = $('bPlaceName').value.trim();
-  } else if (!sel) {
-    Object.assign(b, { place: '', lat: null, lon: null, tz: 9, placeName: '' });
   } else {
     const p = KurageFortune.PLACES.find(([n]) => n === sel);
     Object.assign(b, { place: sel, lat: p[1], lon: p[2], tz: 9, placeName: '' });
