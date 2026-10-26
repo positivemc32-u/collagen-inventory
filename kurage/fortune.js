@@ -137,53 +137,42 @@
       : `（生まれた${natal.hasTime ? '場所' : '時間'}がわからないため、アセンダントは出していません）`;
     const color = pick(LUCKY_COLORS), item = pick(LUCKY_ITEMS), action = pick(LUCKY_ACTIONS);
 
+    const reading = pick(READINGS);
+    const keyword = pick(['ゆだねる', 'はじめる', '整える', '伝える', '受けとる', '手放す', '楽しむ', '信じる']);
+    // 3つにまとめる：総合運とリーディング／西洋占星術と数秘術（世界生まれ）／九星気学と風水（日本で広まったもの）
     return [
       {
+        target: 'みんな', region: '日本',
         telop: `今日の運気 ${stars(score)}`,
         title: `${fmtDate(today)}の総合運は ${stars(score)}`,
-        summary: `今日は月が${moon.sign.name}を通る日。${natal.sunSign.name}生まれのあなたにとって、${rel.text}です。` +
-          (isFull ? '今日は満月。物事がひとつの区切りを迎え、願いが形になりやすい日です。' : '') +
-          (isNew ? '今日は新月。新しい願いごとを書き出すのにぴったりです。' : '') +
-          (reki.length ? `暦の上では${reki.map((r) => r.name).join('・')}でもあります。` : ''),
-        detail: `ラッキーカラーは${color}、ラッキーアイテムは${item}。おすすめの開運アクションは「${action}」です。`,
+        summary: `${natal.sunSign.name}生まれのあなたにとって、今日は${rel.text}。` +
+          (isFull ? '満月で、願いが形になりやすい日です。' : '') +
+          (isNew ? '新月で、新しい願いごとにぴったりです。' : '') +
+          (reki.length ? `暦の上では${reki.map((r) => r.name).join('・')}。` : '') +
+          `ラッキーカラーは${color}、ラッキーアイテムは${item}。`,
+        detail: `クラゲの直感リーディング：${reading}今日のキーワードは「${keyword}」。おすすめの開運アクションは「${action}」です。（楽しみとしてどうぞ）`,
+        world: '一粒万倍日のような「日の良し悪し」は中国の暦から来た考え方で、台湾や香港でも「農民暦」で吉日を選ぶ習慣が今も残っています。',
         talk: `今日は${reki.length ? reki[0].name + 'で' : ''}${isFull ? '満月だから' : ''}、何か小さく始めるのにいい日なんだって。`,
         sources: [], kind: 'fortune',
       },
       {
-        telop: `月は${moon.sign.name} 占星術`,
-        title: `西洋占星術：今日の月は${moon.sign.name}（月齢${moon.age.toFixed(1)}・${moon.phase}）`,
-        summary: MOON_TODAY[moon.sign.name],
-        detail: `あなたの生まれた時の星（${birthLabel}）：${sunText}、月は${natal.moonSign.name}${natal.moonDeg}度${ascText}。` +
-          `太陽星座は「生き方」、月星座は「素の心」をあらわします。今日の月（${moon.sign.name}）と、あなたの月（${natal.moonSign.name}）が` +
-          (moon.sign.name === natal.moonSign.name ? '同じ星座に重なる、心が満たされやすい日です。' : '別の場所にあるので、気持ちの切り替えを意識すると上手くいきます。'),
-        talk: `今日は月が${moon.sign.name}にあるんだって。「${MOON_TODAY[moon.sign.name]}」らしいよ。`,
+        target: 'みんな', region: '世界',
+        telop: `月は${moon.sign.name} 数秘は${num.personalDay}`,
+        title: `西洋占星術と数秘術：今日の月は${moon.sign.name}、あなたは「${num.personalDay}」の日`,
+        summary: `${MOON_TODAY[moon.sign.name]}数秘術では${PERSONAL_DAY[num.personalDay]}`,
+        detail: `あなたの星（${birthLabel}）：${sunText}、月は${natal.moonSign.name}${natal.moonDeg}度${ascText}。` +
+          `ライフパスナンバーは「${num.lifePath}」。${LIFE_PATH[num.lifePath]}`,
+        talk: `今日は月が${moon.sign.name}にあるんだって。${MOON_TODAY[moon.sign.name]}`,
         sources: [], kind: 'fortune',
       },
       {
-        telop: `数秘 今日は「${num.personalDay}」の日`,
-        title: `数秘術：ライフパス${num.lifePath}・今日はパーソナルデー${num.personalDay}`,
-        summary: `今日は${PERSONAL_DAY[num.personalDay]}`,
-        detail: `生年月日の数字をすべて足したライフパスナンバーは「${num.lifePath}」。${LIFE_PATH[num.lifePath]}` +
-          `今年（${today.getFullYear()}年）はパーソナルイヤー「${num.personalYear}」、今月は「${num.personalMonth}」の流れの中にいます。`,
-        talk: `数秘術だと今日は「${num.personalDay}」の日。${PERSONAL_DAY[num.personalDay]}`,
-        sources: [], kind: 'fortune',
-      },
-      {
-        telop: `${hon.name} 風水`,
-        title: `九星気学・風水：本命星は${hon.name}／今日は${kanshi.name}の日`,
+        target: 'みんな', region: '日本',
+        telop: `${hon.name} 今日の風水`,
+        title: `九星気学・風水：本命星は${hon.name}、今日は${kanshi.name}の日`,
         summary: EL_TIP[kanshi.el],
-        detail: `あなたの本命星は${hon.name}（立春から数えて${hon.year}年の星）。${KYUSEI_TRAIT[hon.idx]}` +
-          (reki.length ? `\n今日の暦：${reki.map((r) => `${r.name}…${r.text}`).join(' ')}` : `今日の日の干支は${kanshi.name}です。`),
+        detail: `あなたの本命星は${hon.name}（立春から数えて${hon.year}年の星）。${KYUSEI_TRAIT[hon.idx]}`,
+        world: '風水は英語でもそのまま「フォンシュイ（Feng Shui）」と呼ばれ、欧米のインテリアでも人気です。九星気学は、その考え方をもとに日本で独自に広まった占いです。',
         talk: `風水だと今日は「${kanshi.el}」の日。${EL_TIP[kanshi.el].split('。')[1] || ''}`,
-        sources: [], kind: 'fortune',
-      },
-      {
-        telop: 'クラゲの直感リーディング',
-        title: 'クラゲの直感リーディング（霊視風メッセージ）',
-        summary: pick(READINGS),
-        detail: `今日のキーワードは「${pick(['ゆだねる', 'はじめる', '整える', '伝える', '受けとる', '手放す', '楽しむ', '信じる'])}」。` +
-          '迷ったときは、ふわふわ漂うクラゲのように、力を抜いて流れに乗ってみてください。（エンターテインメントとしてお楽しみください）',
-        talk: 'クラゲのリーディングだと、今日は力を抜いた方がうまくいくんだって。',
         sources: [], kind: 'fortune',
       },
     ];
@@ -203,6 +192,8 @@
         summary: s.sekki.text,
         detail: `次の節気は「${s.nextSekki.name}（${s.nextSekki.yomi}）」で、${fmtDate(s.nextSekkiStart)}から。あと${daysTo}日です。${s.nextSekki.text}`,
         talk: `今は二十四節気の「${s.sekki.name}」。あと${daysTo}日で「${s.nextSekki.name}」なんだよ。`,
+        target: 'みんな', region: '日本',
+        world: '二十四節気は古代中国で生まれた暦で、2016年にユネスコの無形文化遺産に登録されました。日本では季節のあいさつや俳句の季語として、今も暮らしに生きています。',
         sources: [], kind: 'sekki',
       },
       {
@@ -211,6 +202,8 @@
         summary: `${s.kou.mean}ころ。七十二候の第${s.kou.no}候で、${fmtDate(s.kouStart)}〜${fmtDate(s.kouEnd)}ごろです。`,
         detail: `七十二候は、二十四節気をさらに約5日ずつに分けて、自然の小さな変化を名前にしたもの。次は「${s.nextKou.name}（${s.nextKou.yomi}）」…${s.nextKou.mean}ころです。`,
         talk: `今は七十二候でいうと「${s.kou.yomi}」。${s.kou.mean}ころって意味なんだって。`,
+        target: 'みんな', region: '日本',
+        world: '七十二候も中国生まれですが、日本では江戸時代に、日本の気候に合うように名前が作り直されました。だから中国の七十二候とは中身が少し違います。',
         sources: [], kind: 'sekki',
       },
       {
@@ -219,6 +212,8 @@
         summary: reki.length ? `今日は${reki.map((r) => r.name).join('・')}。${reki[0].text}` : `今日の干支は${kanshi.name}。特別な暦注のない、落ち着いた一日です。`,
         detail: `月齢は夜9時ごろで${moon.age.toFixed(1)}、${moon.phase}です。昔の人は月の満ち欠けで日にちを数えていて、満月はおよそ15日目「十五夜」にあたります。`,
         talk: reki.length ? `今日って${reki[0].name}なんだよ。` : `今日の干支は${kanshi.name}だって。`,
+        target: 'みんな', region: '日本',
+        world: '干支（えと）は中国・韓国・ベトナムなど東アジアで共通。ただしベトナムの十二支では、うさぎの代わりに猫が入っています。',
         sources: [], kind: 'sekki',
       },
     ];
@@ -247,6 +242,8 @@
       summary: `今がおいしい旬の食べもの：${food}。`,
       detail: `${today.getMonth() + 1}月の主な行事・季節のできごと：${events}。旬の食材は栄養価が高く、値段も手ごろになりやすいのがうれしいところです。`,
       talk: `今の旬は${food.split('・')[0]}。今夜のおかずにどう？`,
+      target: 'みんな', region: '日本',
+      world: '旬の食材を大切にすることは、「和食」が2013年にユネスコの無形文化遺産に登録された理由の一つです。季節を味わう文化として世界から注目されています。',
       sources: [], kind: 'season',
     };
   }

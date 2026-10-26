@@ -12,14 +12,17 @@ const SYSTEM = `あなたは、日本語のニュースを「端的に・正確�
 必ず web_search で最新の報道を調べ、確認できた事実だけを書いてください。推測や作り話は禁止です。
 数字・日付・固有名詞は出典どおりに書き、はっきりしないことは「〜と報じられています」と書きます。
 最後に、次の形の JSON 配列だけを出力してください（前後に文章やコードブロックの記号を付けない）：
-[{"region":"世界 か 日本（項目の指示にあるときだけ）","telop":"画像に出す14文字以内のテロップ","title":"見出し（40文字以内）","summary":"何が起きたかを2文で端的に","detail":"背景や意味をやさしく2〜3文で解説","talk":"人に話すときのひとこと（話し言葉で1文、ちょっと面白く）","sources":[{"name":"媒体名","url":"https://..."}]}]`;
+[{"target":"いちばん話題にしたいターゲット（指示の一覧から1つ）","region":"日本 か 世界（どこ発信のニュースか）","telop":"画像に出す14文字以内のテロップ","title":"見出し（40文字以内）","summary":"何が起きたかを1〜2文で端的に","world":"日本発信のものだけ：世界からどう見られているか、または世界の似たもの（1〜2文）","talk":"人に話すときのひとこと（話し言葉で1文、ちょっと面白く）","sources":[{"name":"媒体名","url":"https://..."}]}]`;
 
-function userPrompt({ title, prompt, count, date }) {
+function userPrompt({ title, prompt, count, targets, date }) {
   const d = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   return `今日は${d}です。項目「${title}」の記事を作ってください。
 集めるもの：${prompt}
 ・今日〜ここ数日の新しいニュースを優先し、なければここ1か月の話題にしてください。
-・${count}件（見つからなければ少なくてもかまいません。水増しはしない）。
+・${count}件。日本発信のものと世界発信のものを必ず両方入れてください（region に「日本」か「世界」）。
+・日本発信の記事には world に「世界からどう見られているか」か「世界の似たもの」を、確かめられた事実で書いてください。
+・各記事の target は、その話題をいちばん楽しめる人を次から1つ：${targets.join('、')}。3件でなるべく違う人にしてください。
+・人に話したくなるように、面白く、でも端的に。
 ・それぞれに実際に読んだ記事の URL を sources に入れてください。`;
 }
 
@@ -32,10 +35,11 @@ function parseItems(text) {
   const str = (v, n) => String(v ?? '').trim().slice(0, n);
   return arr.filter((x) => x && x.title).map((x) => ({
     ...(x.region === '世界' || x.region === '日本' ? { region: x.region } : {}),
+    ...(/^[3-5]0代(女性|男性)$/.test(x.target || '') ? { target: x.target } : { target: 'みんな' }),
     telop: str(x.telop, 20),
     title: str(x.title, 120),
     summary: str(x.summary, 400),
-    detail: str(x.detail, 600),
+    ...(x.region === '日本' && x.world ? { world: str(x.world, 400) } : {}),
     talk: str(x.talk, 200),
     sources: (Array.isArray(x.sources) ? x.sources : [])
       .filter((s) => s && /^https?:\/\//i.test(s.url || ''))
@@ -44,10 +48,10 @@ function parseItems(text) {
   }));
 }
 
-async function fetchSection({ apiKey, title, prompt, count, date }) {
+async function fetchSection({ apiKey, title, prompt, count, targets, date }) {
   const Anthropic = await loadSdk();
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-  const messages = [{ role: 'user', content: userPrompt({ title, prompt, count, date }) }];
+  const messages = [{ role: 'user', content: userPrompt({ title, prompt, count, targets, date }) }];
   const done = [];
   let res;
   // 調べものが長いと途中で一度止まる（pause_turn）ので、続きから再開する

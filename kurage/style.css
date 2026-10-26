@@ -104,6 +104,23 @@ main { max-width: 860px; margin: 0 auto; padding: 12px 16px; }
 .summary { margin: 0 0 8px; }
 .detail { margin: 0 0 8px; color: #cfe8f3; font-size: 0.96rem; white-space: pre-line; }
 .detail::before { content: "💡 解説　"; color: var(--accent); font-weight: 700; }
+.news-card { cursor: pointer; }
+.news-card:hover { border-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 6px; }
+.chip { font-size: 0.8rem; font-weight: 700; padding: 1px 10px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); }
+.chip.jp { background: #3a1f2a; border-color: #8a3f57; color: #ffd6e2; }
+.chip.world { background: #16344a; border-color: #2f7ea6; color: #cdefff; }
+.tap-hint { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+.world {
+  background: rgba(47, 126, 166, 0.16); border-left: 4px solid #2f7ea6;
+  border-radius: 8px; padding: 6px 10px; margin: 0 0 8px; font-size: 0.95rem;
+}
+.world::before { content: "🌍 世界から見ると　"; font-weight: 700; color: #8fd3ff; }
+.order-note { margin: 6px 0 0; font-size: 0.85rem; color: var(--accent2); }
+.updown { display: flex; gap: 4px; }
+button:disabled { opacity: 0.35; cursor: default; }
+/* 見出しの横のクラゲは、持ち物が文字にかからないように持ち物を出さない */
+.brand-kurage .kg-prop { display: none; }
 .talk {
   background: rgba(127, 216, 246, 0.1); border-left: 4px solid var(--accent);
   border-radius: 8px; padding: 6px 10px; margin: 0 0 8px; font-size: 0.95rem;
@@ -238,7 +255,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .dlg h2 { margin: 0; font-size: 1.15rem; }
 .dlg label { display: grid; gap: 4px; font-size: 0.92rem; }
 .dlg label.check { display: flex; align-items: center; gap: 8px; }
-.dlg input:not([type=checkbox]), .dlg select, .dlg textarea {
+.dlg input:not([type=checkbox]):not([type=radio]), .dlg select, .dlg textarea {
   width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
 }
 .dlg fieldset { border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 8px; margin: 0; padding: 10px 12px; }
