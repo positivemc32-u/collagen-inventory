@@ -41,7 +41,8 @@ const DEFAULT_STATE = {
   hidden: {},
   custom: [],
   userItems: {},
-  birth: { date: '1972-04-20', time: '08:00', place: '石川県 金沢市', lat: 36.561, lon: 136.656, tz: 9, placeName: '' },
+  // 生年月日などの個人情報はプログラムには書かず、「⚙️ 設定」で入れてもらいます（この端末の中にだけ保存）
+  birth: { date: '', time: '', place: '', lat: null, lon: null, tz: 9, placeName: '' },
   voice: 'male',
   rate: 1,
   muted: false,
@@ -80,8 +81,9 @@ function today() { const n = new Date(); return new Date(n.getFullYear(), n.getM
 
 function birthForCalc() {
   const b = state.birth;
-  const [y, m, d] = (b.date || '1972-04-20').split('-').map(Number);
-  return { y, m, d, time: b.time || '', lat: Number(b.lat), lon: Number(b.lon), tz: Number(b.tz ?? 9), placeName: b.placeName || '' };
+  const [y, m, d] = b.date.split('-').map(Number);
+  const coord = (v) => (v === null || v === '' || v === undefined ? NaN : Number(v));
+  return { y, m, d, time: b.time || '', lat: coord(b.lat), lon: coord(b.lon), tz: Number(b.tz ?? 9), placeName: b.placeName || '' };
 }
 
 // ---------- 各項目の記事を集める ----------
@@ -89,7 +91,15 @@ function itemsFor(sec) {
   const t = today();
   const todayStr = ymd(t);
   let items = [];
-  if (sec.id === 'fortune') items = KurageFortune.fortuneItems(birthForCalc(), t);
+  if (sec.id === 'fortune') {
+    items = state.birth.date ? KurageFortune.fortuneItems(birthForCalc(), t) : [{
+      telop: '生年月日を入れてね',
+      title: '「🎂 生年月日を変える」から、生年月日・生まれた時間・場所を入れてください',
+      summary: '入れると、西洋占星術・数秘術・九星気学と風水・クラゲの直感リーディングで、あなたの今日の運気を毎日お届けします。',
+      detail: '生年月日などはこの端末のブラウザの中にだけ保存され、インターネットには送られません。',
+      kind: 'fortune',
+    }];
+  }
   else if (sec.id === 'sekki') items = KurageFortune.sekkiItems(t);
   else {
     const ai = aiCache.sections[sec.id];
@@ -626,14 +636,15 @@ function openSettings(focusBirth = false) {
   const b = state.birth;
   $('bDate').value = b.date;
   $('bTime').value = b.time || '';
-  $('bTimeUnknown').checked = !b.time;
-  $('bTime').disabled = !b.time;
+  $('bTimeUnknown').checked = !!b.date && !b.time;
+  $('bTime').disabled = $('bTimeUnknown').checked;
   const sel = $('bPlace');
   if (!sel.options.length) {
+    sel.add(new Option('（選んでください）', ''));
     for (const [name] of KurageFortune.PLACES) sel.add(new Option(name, name));
     sel.add(new Option('その他（緯度・経度を自分で入れる）', 'custom'));
   }
-  sel.value = KurageFortune.PLACES.some(([n]) => n === b.place) ? b.place : 'custom';
+  sel.value = !b.place ? '' : KurageFortune.PLACES.some(([n]) => n === b.place) ? b.place : 'custom';
   $('customPlace').hidden = sel.value !== 'custom';
   $('bLat').value = b.lat; $('bLon').value = b.lon; $('bTz').value = b.tz ?? 9; $('bPlaceName').value = b.placeName || '';
   $('apiKey').value = getApiKey();
@@ -671,6 +682,8 @@ function saveBirth() {
     b.tz = Number($('bTz').value);
     if (!isFinite(b.tz)) b.tz = 9;
     b.placeName = $('bPlaceName').value.trim();
+  } else if (!sel) {
+    Object.assign(b, { place: '', lat: null, lon: null, tz: 9, placeName: '' });
   } else {
     const p = KurageFortune.PLACES.find(([n]) => n === sel);
     Object.assign(b, { place: sel, lat: p[1], lon: p[2], tz: 9, placeName: '' });

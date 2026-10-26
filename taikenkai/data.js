@@ -12,9 +12,10 @@ function defaultSettings() {
   return {
     members: [
       // rate：材料の単価の何％を返金するか　share：マイナスやプラスを等分する仲間か
-      { id: 'm_kura', name: '倉', rate: 50, share: true },
-      { id: 'm_shintani', name: '新谷由起美AD', rate: 80, share: true },
-      { id: 'm_tanaka', name: '田中博明AD', rate: 80, share: true },
+      // 名前は個人情報なのでプログラムには書かず、「⚙️ 設定」で入れてもらいます
+      { id: 'm_kura', name: 'Aさん', rate: 50, share: true },
+      { id: 'm_shintani', name: 'Bさん', rate: 80, share: true },
+      { id: 'm_tanaka', name: 'Cさん', rate: 80, share: true },
       { id: 'm_other', name: 'その他', rate: 80, share: false },
     ],
     materials: [
@@ -111,7 +112,7 @@ function normalizeDb(d) {
     }
     s.rev = 2;
   }
-  // 返金の割合（倉は50％、ほかは80％）を足す
+  // 返金の割合（1人目は50％、ほかは80％）を足す
   if (s.rev < 3) {
     s.members.forEach((m) => { if (m.rate == null) m.rate = m.id === 'm_kura' ? 50 : 80; });
     s.rev = 3;
@@ -278,15 +279,20 @@ function refundUnit(price, rate) {
   return Math.round(price * rate / 100);
 }
 
-// 誰の物を使ったか
-//   kura   … 倉の物だけ
-//   split  … 倉が半分、残りの半分を新谷・田中で割る
+// 誰の物を使ったか（表示する名前は設定のメンバー名から作ります）
+//   kura   … 1人目（Aさん）の物だけ
+//   split  … 1人目が半分、残りの半分を2人目・3人目で割る
 //   manual … 人ごとに回数を入力
 const MAT_MODES = [
-  { id: 'kura', label: '倉の物だけ', shares: { m_kura: 1 } },
-  { id: 'split', label: '倉・新谷・田中で分ける', shares: { m_kura: 0.5, m_shintani: 0.25, m_tanaka: 0.25 } },
+  { id: 'kura', shares: { m_kura: 1 } },
+  { id: 'split', shares: { m_kura: 0.5, m_shintani: 0.25, m_tanaka: 0.25 } },
   { id: 'manual', label: '人ごとに入力' },
 ];
+function matModeLabel(md, members) {
+  if (!md.shares) return md.label;
+  const names = Object.keys(md.shares).map((id) => (members.find((m) => m.id === id) || {}).name || '（削除された人）');
+  return md.id === 'kura' ? `${names[0]}の物だけ` : `${names.join('・')}で分ける`;
+}
 
 // count が null のときは参加者のメニューから自動で数える（手で直すと数字が入る）
 function matUseOf(ev, matId) {

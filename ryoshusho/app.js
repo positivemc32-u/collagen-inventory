@@ -53,11 +53,14 @@ function renderCreate() {
     ${d.id ? `<div class="notice">No.${noLabel(d.no)}（${dateJa(d.date)}発行）を開いています。直して送り直すと、同じ番号のまま上書きされます。
       <button type="button" class="link" data-act="new">新しく作る</button></div>` : ''}
 
+    ${issuerOf(d).name ? '' : `<div class="notice">はじめに「⚙️ 設定」で、発行元（名前・住所・電話番号・登録番号）を入れてください。
+      <button type="button" class="link" data-act="gosettings">設定を開く</button></div>`}
+
     <section class="panel">
       ${issuers().length > 1 ? `
         <div class="field"><label>発行元</label>
           <div class="seg">${issuers().map((x) => `
-            <label><input type="radio" name="issuer" value="${esc(x.id)}" ${x.id === d.issuerId ? 'checked' : ''}><span>${esc(x.name)}</span></label>`).join('')}
+            <label><input type="radio" name="issuer" value="${esc(x.id)}" ${x.id === d.issuerId ? 'checked' : ''}><span>${esc(x.name || '（名前なし）')}</span></label>`).join('')}
           </div>
         </div>` : ''}
       <div class="row2">
@@ -427,6 +430,7 @@ main.addEventListener('click', (e) => {
   }
   switch (b.dataset.act) {
     case 'new': state.draft = blankReceipt(db); render(); break;
+    case 'gosettings': state.tab = 'settings'; render(); break;
     case 'addItem': d.items.push({ name: '', qty: 1, price: 0, rate: 10 }); renderCreate(); break;
     case 'share': share(); break;
     case 'download': download(); break;

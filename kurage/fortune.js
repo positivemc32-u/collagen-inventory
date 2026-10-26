@@ -108,6 +108,7 @@
 
   function placeLabel(b) {
     if (b.placeName) return b.placeName;
+    if (!isFinite(b.lat) || !isFinite(b.lon)) return '場所は未設定';
     const p = PLACES.find((x) => Math.abs(x[1] - b.lat) < 0.01 && Math.abs(x[2] - b.lon) < 0.01);
     return p ? p[0] : `北緯${b.lat}・東経${b.lon}`;
   }
@@ -132,7 +133,8 @@
     const birthLabel = `${b.y}年${b.m}月${b.d}日${b.time ? ` ${Number(b.time.split(':')[0])}時${b.time.split(':')[1]}分` : ''}生まれ・${placeLabel(b)}`;
     const cusp = natal.sunDeg >= 29 || natal.sunDeg < 1;
     const sunText = `太陽は${natal.sunSign.name}${natal.sunDeg}度` + (cusp ? `（となりの星座との境目「カスプ」で、両方の性質をあわせ持ちます）` : '');
-    const ascText = natal.ascSign ? `、アセンダント（第一印象）は${natal.ascSign.name}` : '（生まれた時間がわからないため、アセンダントは出していません）';
+    const ascText = natal.ascSign ? `、アセンダント（第一印象）は${natal.ascSign.name}`
+      : `（生まれた${natal.hasTime ? '場所' : '時間'}がわからないため、アセンダントは出していません）`;
     const color = pick(LUCKY_COLORS), item = pick(LUCKY_ITEMS), action = pick(LUCKY_ACTIONS);
 
     return [

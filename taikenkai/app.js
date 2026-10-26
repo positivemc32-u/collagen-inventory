@@ -227,7 +227,7 @@ function renderEvent() {
       <div class="panel-head"><h2>② 材料の使用量（返金）</h2><span data-calc="material"></span></div>
       <p class="hint">使用人数は、参加者が選んだ体験メニューから自動で数えます（例：アロマ占いだけの人は数えません）。違うときは −／＋ で直せます。
         単価×人数×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）を返金します。
-        ふだんは「倉の物だけ」。ほかの人も出したときは「倉・新谷・田中で分ける」（倉が半分、残りの半分を新谷・田中で割る）を選んでください。</p>
+        ふだんは「${esc(matModeLabel(MAT_MODES[0], ms))}」。ほかの人も出したときは「${esc(matModeLabel(MAT_MODES[1], ms))}」（1人目が半分、残りの半分を2人目・3人目で割る）を選んでください。</p>
       <div class="mats">
         ${ev.materials.map((m) => matCardHtml(ev, m, ms)).join('')}
       </div>
@@ -444,7 +444,7 @@ function matCardHtml(ev, m, ms) {
     </div>
     ${manual ? '' : `<div class="mat-auto" data-calc="auto-${m.id}"></div>`}
     <div class="seg small">
-      ${MAT_MODES.map((md) => `<label><input type="radio" name="mode_${m.id}" data-mode-mat="${m.id}" value="${md.id}"${md.id === use.mode ? ' checked' : ''}><span>${md.label}</span></label>`).join('')}
+      ${MAT_MODES.map((md) => `<label><input type="radio" name="mode_${m.id}" data-mode-mat="${m.id}" value="${md.id}"${md.id === use.mode ? ' checked' : ''}><span>${esc(matModeLabel(md, members()))}</span></label>`).join('')}
     </div>
     ${manual ? `<div class="manual-grid">${ms.map((mb) => `<div><span>${esc(mb.name)}（${rateOf(ev, ms, mb.id)}%）</span>
       ${stepperHtml(`data-mat="${m.id}" data-mem="${mb.id}"`, usageCount(ev, m.id, mb.id), mb.name)}</div>`).join('')}</div>` : ''}
@@ -668,7 +668,7 @@ function renderSettings() {
     <form id="setForm">
       <section class="panel">
         <h2>材料を出す人と返金の割合</h2>
-        <p class="hint">材料の単価の何％をその人に返すか（例：倉は50％、ほかは80％）。「等分」にチェックした人で、精算のときにマイナス（プラス）を等分します。</p>
+        <p class="hint">材料の単価の何％をその人に返すか（例：1人目は50％、ほかは80％）。名前は自分たちの名前に書き換えてください（この端末の中にだけ保存されます）。「等分」にチェックした人で、精算のときにマイナス（プラス）を等分します。</p>
         <div id="memRows">${s.members.map((m) => memRowHtml(m)).join('')}</div>
         <button type="button" class="btn small" data-add-row="mem">＋ 人を追加</button>
       </section>
