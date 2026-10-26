@@ -9,6 +9,7 @@ const STORAGE_KEY = 'ryoshusho-v1';
 // プログラムには書かず、各端末の「⚙️ 設定」で入れてもらいます（その端末の中にだけ保存）。
 // 住所・電話番号・登録番号は全部の屋号で共通（business）。屋号はいくつでも登録でき、作成画面のプルダウンで選びます。
 // 登録番号は「人（事業者）」ごとに1つなので、同じ人が出すなら屋号が違っても同じ番号を使えます。
+// ⚠️ 名前・住所・電話・登録番号などの個人情報は、このファイルに書かないでください（GitHub で公開されています）。
 const DEFAULT_ISSUERS = [
   { id: 'main', name: '', zip: '', address: '', tel: '' }, // zip・address・tel は空なら共通の情報を使う
 ];
@@ -34,6 +35,8 @@ function defaultDb() {
       nextNo: 1,
     },
     receipts: [],
+    lastBackup: null, // 最後にバックアップを書き出した日時
+    backupLog: [], // バックアップ・読み込みの履歴（新しい順、最大50件）
   };
 }
 
@@ -48,11 +51,37 @@ function loadDb() {
   }
 }
 
-// バックアップのファイルから読み込んだデータを、いまの形にそろえる
-function importBackup(text) {
-  const d = JSON.parse(text);
-  if (!d || d.app !== 'ryoshusho' || !d.db || !Array.isArray(d.db.receipts)) throw new Error('この領収書アプリのバックアップではありません');
-  return normalizeDb(d.db);
+// ---------- バックアップ（.json ファイル） ----------
+// 発行元・番号・領収書の履歴をまるごと1つのファイルにします。バックアップの履歴自体は入れません。
+const BACKUP_KIND = 'ryoshusho-backup';
+
+function exportJson(db) {
+  const { backupLog, lastBackup, ...rest } = db;
+  return JSON.stringify({ kind: BACKUP_KIND, version: 1, exportedAt: new Date().toISOString(), db: rest }, null, 1);
+}
+
+// 読み込んだファイルを確かめて、アプリで使える形にする（おかしいときはエラー）
+function importJson(text) {
+  let d;
+  try { d = JSON.parse(text); } catch (e) { throw new Error('ファイルの形がちがいます（領収書アプリのバックアップを選んでください）'); }
+  // 以前の「⚙️ 設定」のバックアップ（app: 'ryoshusho'）も読めるようにしておく
+  if (!d || !(d.kind === BACKUP_KIND || d.app === 'ryoshusho') || !d.db) throw new Error('領収書アプリのバックアップではありません');
+  const src = d.db;
+  if (!Array.isArray(src.receipts)) throw new Error('領収書のデータが見つかりません');
+  const receipts = src.receipts.filter((r) => r && r.id && Array.isArray(r.items));
+  const db = normalizeDb({ settings: src.settings, receipts });
+  db.backupLog = [];
+  db.lastBackup = null;
+  const maxNo = receipts.reduce((m, r) => Math.max(m, Number(r.no) || 0), 0);
+  if (!(db.settings.nextNo > maxNo)) db.settings.nextNo = maxNo + 1;
+  return { db, exportedAt: d.exportedAt || d.savedAt || null };
+}
+
+function receiptsTotal(list) { return list.reduce((sum, r) => sum + calcReceipt(r).total, 0); }
+
+function addBackupLog(db, entry) {
+  db.backupLog.unshift({ at: new Date().toISOString(), count: db.receipts.length, total: receiptsTotal(db.receipts), ...entry });
+  db.backupLog = db.backupLog.slice(0, 50);
 }
 
 // 古い形（屋号ごとに住所・登録番号を持っていた）のデータも、いまの形にそろえる
@@ -71,6 +100,8 @@ function normalizeDb(db) {
     delete x.regNo;
   });
   db.receipts = db.receipts || [];
+  db.backupLog = db.backupLog || [];
+  if (db.lastBackup === undefined) db.lastBackup = null;
   return db;
 }
 
