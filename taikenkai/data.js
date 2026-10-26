@@ -13,9 +13,9 @@ function defaultSettings() {
     members: [
       // rate：材料の単価の何％を返金するか　share：マイナスやプラスを等分する仲間か
       // 名前は個人情報なので、プログラムには書かず「⚙️ 設定」で入れてもらう（その端末の中にだけ保存）
-      { id: 'm_1', name: 'わたし', rate: 50, share: true },
-      { id: 'm_2', name: 'メンバー2', rate: 80, share: true },
-      { id: 'm_3', name: 'メンバー3', rate: 80, share: true },
+      { id: 'm_1', name: 'Aさん', rate: 50, share: true },
+      { id: 'm_2', name: 'Bさん', rate: 80, share: true },
+      { id: 'm_3', name: 'Cさん', rate: 80, share: true },
       { id: 'm_other', name: 'その他', rate: 80, share: false },
     ],
     materials: [
