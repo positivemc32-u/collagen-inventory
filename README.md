@@ -12,6 +12,8 @@
 > 🔊 **読み上げ・文字起こしアプリ** も同じ場所にあります → `yomiage/` フォルダ（URL の最後に `/yomiage/` を付けて開きます）。詳しくは [yomiage/README.md](yomiage/README.md)
 >
 > ⏰ **リマインダーアプリ** も同じ場所にあります → `remind/` フォルダ（URL の最後に `/remind/` を付けて開きます）。詳しくは [remind/README.md](remind/README.md)
+>
+> 🪼 **クラゲのニューストピック** も同じ場所にあります → `kurage/` フォルダ（URL の最後に `/kurage/` を付けて開きます）。ニュース・占いの読み上げアプリです。詳しくは [kurage/README.md](kurage/README.md)
 
 ---
 
