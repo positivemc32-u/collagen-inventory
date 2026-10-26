@@ -104,7 +104,7 @@ function renderEditor() {
           <select data-f="credit">${credits.map((c) => `<option ${c === d.credit ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
       </div>
       <div class="field"><label>店名 <small>弥生の「摘要」になります</small></label>
-        <input type="text" data-f="store" value="${esc(d.store)}" placeholder="例：ダイソー 加賀店"></div>
+        <input type="text" data-f="store" value="${esc(d.store)}" placeholder="例：ダイソー ○○店"></div>
 
       <div class="field"><label>金額（税込）・勘定科目</label>
         <div class="lines">

@@ -50,6 +50,7 @@ function renderCreate() {
   const d = state.draft;
   const usedNames = [...new Set(db.receipts.flatMap((r) => r.items.map((it) => it.name)).filter(Boolean))];
   main.innerHTML = `
+    ${!issuerOf(d).name ? `<div class="notice">はじめに「⚙️ 設定」で、発行元（名前・住所・電話番号・登録番号）を入れてください。この端末の中にだけ保存されます。</div>` : ''}
     ${d.id ? `<div class="notice">No.${noLabel(d.no)}（${dateJa(d.date)}発行）を開いています。直して送り直すと、同じ番号のまま上書きされます。
       <button type="button" class="link" data-act="new">新しく作る</button></div>` : ''}
 
@@ -317,6 +318,17 @@ function exportCsv() {
   downloadFile(new File([csv], 'receipt_history_' + todayStr() + '.csv', { type: 'text/csv' }));
 }
 
+// 発行元と履歴をまるごと書き出す（共有できる端末では LINE・メールなどへ）
+async function backup() {
+  const file = new File([JSON.stringify({ app: 'ryoshusho', version: 1, savedAt: new Date().toISOString(), db })],
+    'ryoshusho_backup_' + todayStr() + '.json', { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: '領収書 バックアップ' }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  downloadFile(file);
+  toast('バックアップを保存しました');
+}
+
 // ---------- 設定 ----------
 function renderSettings() {
   main.innerHTML = `
@@ -340,6 +352,14 @@ function renderSettings() {
       <h2>番号</h2>
       <div class="field inline"><label>次に発行する番号</label>
         <input type="number" inputmode="numeric" min="1" id="nextNo" value="${db.settings.nextNo}" style="width:120px"></div>
+    </section>
+    <section class="panel">
+      <h2>バックアップ</h2>
+      <span class="hint">発行元の情報と履歴を、まるごと1つのファイルに書き出します。機種変更や、アプリの場所（URL）が変わったときは、書き出したファイルを新しい方で読み込んでください。</span>
+      <div class="btn-row">
+        <button type="button" class="btn" data-act="backup">💾 バックアップを書き出す</button>
+        <label class="btn file-btn">📂 バックアップを読み込む<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
+      </div>
     </section>
     <section class="panel">
       <h2>このアプリについて</h2>
@@ -379,8 +399,24 @@ main.addEventListener('input', (e) => {
   }
 });
 
-main.addEventListener('change', (e) => {
+main.addEventListener('change', async (e) => {
   const t = e.target;
+  if (t.id === 'restoreFile' && t.files[0]) {
+    try {
+      const next = importBackup(await t.files[0].text());
+      if (!confirm(`履歴${next.receipts.length}件を読み込みます。いまこの端末にあるデータは置きかわります。よろしいですか？`)) return;
+      db = next;
+      persist();
+      state.draft = blankReceipt(db);
+      render();
+      toast('読み込みました');
+    } catch (err) {
+      alert('読み込めませんでした：' + err.message);
+    } finally {
+      t.value = '';
+    }
+    return;
+  }
   if (t.name === 'issuer') { state.draft.issuerId = t.value; updatePreview(); }
   if (t.name === 'payment') { state.draft.payment = t.value; updatePreview(); }
   if (t.name === 'format') { state.format = t.value; updatePreview(); }
@@ -436,6 +472,7 @@ main.addEventListener('click', (e) => {
       toast('履歴に保存しました（No.' + noLabel(state.draft.no) + '）');
       break;
     case 'csv': exportCsv(); break;
+    case 'backup': backup(); break;
     case 'addIssuer':
       issuers().push({ ...issuers()[0], id: uid(), name: '' });
       persist();
