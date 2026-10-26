@@ -9,7 +9,7 @@ const state = {
   query: '',
   filter: 'all',
   custQuery: '',
-  showPaused: true,
+  showResting: false, // 顧客画面：この月に送らない人（お休み・休止中）も表示するか
   allYm: 'all', // 一覧画面の年月（'all' はすべての月）
   allQuery: '',
   allFilter: 'all',
@@ -169,7 +169,8 @@ function shipCard({ customer: c, record: r }) {
   const badges = [qtyBadges(r.qty)];
   badges.push(`<span class="badge">${esc(c.plan)}</span>`);
   if (c.plan === '隔月') badges.push(`<span class="badge primary">隔月・この月が発送月</span>`);
-  if (r.irregular) badges.push(`<span class="badge primary">この月に追加</span>`);
+  if (c.plan === '単発') badges.push(`<span class="badge primary">この月に送る</span>`);
+  else if (r.irregular) badges.push(`<span class="badge primary">この月に臨時追加</span>`);
   badges.push(`<span class="badge ${c.delivery === '手渡し' ? 'warn' : ''}">${esc(c.delivery)}</span>`);
   if (c.paused) badges.push(`<span class="badge">休止中</span>`);
 
@@ -231,7 +232,7 @@ function openRecordSheet(cid, ym) {
         ${c.memo ? '📝 ' + esc(c.memo) : ''}
         <div style="margin-top:8px"><button type="button" class="btn small" data-action="edit-customer" data-id="${c.id}">顧客情報を編集</button></div>
       </div>
-      ${r.irregular ? `<button type="button" class="btn danger" data-action="remove-irregular" data-id="${c.id}" data-ym="${ym}">${ymLabel(ym)}のリストから外す</button>` : ''}
+      ${c.plan === '単発' || r.irregular ? `<button type="button" class="btn danger" data-action="remove-irregular" data-id="${c.id}" data-ym="${ym}">${ymLabel(ym)}の発送リストから外す</button>` : ''}
       <div class="sheet-actions">
         <button type="button" class="btn" data-action="close-sheet">キャンセル</button>
         <button type="submit" class="btn primary">保存</button>
@@ -253,18 +254,18 @@ function openRecordSheet(cid, ym) {
 }
 
 function openAddIrregular() {
-  const recs = db.records[state.ym] || {};
-  const cands = db.customers.filter((c) => c.plan === '単発' && !recs[c.id]);
-  const others = db.customers.filter((c) => c.plan !== '単発' && !shipList(db, state.ym).some((it) => it.customer.id === c.id));
+  const listed = shipList(db, state.ym).map((it) => it.customer.id);
+  const cands = db.customers.filter((c) => c.plan === '単発' && !c.paused && !listed.includes(c.id));
+  const others = db.customers.filter((c) => c.plan !== '単発' && !listed.includes(c.id));
   const btn = (c) => `<button type="button" class="btn" data-action="pick-irregular" data-id="${c.id}">
       <span>${esc(c.name)}${c.paused ? '（休止中）' : ''}</span><span>${qtyBadges(c.qty)}</span></button>`;
   openSheet(`
     <h2>${ymLabel(state.ym)}に追加する人</h2>
-    <p class="small muted">単発の人を選ぶと、${ymLabel(state.ym)}の発送リストに入ります。</p>
+    <p class="small muted">単発の人を選ぶと、その人の「送る月」に${ymLabel(state.ym)}が追加され、この月の発送リストと在庫の計算に入ります。</p>
     <div class="pick-list form">
       ${cands.length ? cands.map(btn).join('') : '<p class="muted">追加できる単発の人はいません。<br>顧客画面で定期便を「単発」にして登録してください。</p>'}
     </div>
-    ${others.length ? `<p class="section-title">その他（この月お休みの隔月の人・休止中の人など）</p><div class="pick-list form">${others.map(btn).join('')}</div>` : ''}
+    ${others.length ? `<p class="section-title">その他：この月だけ臨時で送る（お休みの月の隔月の人・休止中の人など）</p><div class="pick-list form">${others.map(btn).join('')}</div>` : ''}
     <div class="sheet-actions"><button type="button" class="btn" data-action="close-sheet">閉じる</button></div>`);
 }
 
@@ -366,36 +367,53 @@ function renderCustomers() {
     <div style="height:10px"></div>
     <input class="search" type="search" placeholder="🔍 名前で検索" value="${esc(state.custQuery)}" data-input="custQuery">
     <div class="chips">
-      <button class="chip${state.showPaused ? ' active' : ''}" data-action="toggle-paused">休止中も表示</button>
+      <button class="chip${state.showResting ? ' active' : ''}" data-action="toggle-resting">${monthName(state.ym)}お休みの人も表示（${restingCount()}人）</button>
     </div>
-    <p class="small muted">登録数 ${db.customers.length}人（休止中 ${db.customers.filter((c) => c.paused).length}人）</p>
+    <p class="small muted">登録数 ${db.customers.length}人 ／ ${monthName(state.ym)}に送る人 ${db.customers.length - restingCount()}人 ／ ${monthName(state.ym)}お休み ${restingCount()}人</p>
     <div id="results"></div>`;
   renderCustomerResults();
+}
+
+// 「10月」のような月の名前
+function monthName(ym) {
+  return Number(ym.split('-')[1]) + '月';
+}
+// 年が表示中の月と違うときだけ年も付ける（例：2027年1月）
+function shortYm(ym, baseYm) {
+  return ym.slice(0, 4) === baseYm.slice(0, 4) ? monthName(ym) : ymLabel(ym);
+}
+// 表示中の月に送らない人（お休み・休止中）の人数
+function restingCount() {
+  return db.customers.filter((c) => !shipsInMonth(c, state.ym)).length;
 }
 
 function renderCustomerResults() {
   const q = state.custQuery.trim();
   const ym = state.ym; // 上部に表示している月を基準にする
-  const mon = Number(ym.split('-')[1]) + '月';
+  const mon = monthName(ym);
+  // 名前で検索しているときは、お休みの人も含めて全員から探す
   const list = db.customers
-    .filter((c) => (!q || c.name.includes(q)) && (state.showPaused || !c.paused))
+    .filter((c) => (q ? c.name.includes(q) : (state.showResting || shipsInMonth(c, ym))))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
 
   if (!list.length) {
-    $('#results').innerHTML = `<div class="empty">${db.customers.length ? '該当する顧客はいません。' : '「＋ 新しい顧客を登録」から登録してください。'}</div>`;
+    let msg = '「＋ 新しい顧客を登録」から登録してください。';
+    if (db.customers.length) msg = q ? '該当する顧客はいません。' : `${mon}に送る人はいません。<br>上の「${mon}お休みの人も表示」で全員を見られます。`;
+    $('#results').innerHTML = `<div class="empty">${msg}</div>`;
     return;
   }
   $('#results').innerHTML = list.map((c) => {
     const badges = [qtyBadges(c.qty), `<span class="badge">${esc(c.plan)}</span>`, `<span class="badge ${c.delivery === '手渡し' ? 'warn' : ''}">${esc(c.delivery)}</span>`];
     if (c.paused) badges.push('<span class="badge">休止中</span>');
-    if (c.plan === '隔月' && !c.paused) {
-      if (isScheduledMonth(c, ym)) badges.push(`<span class="badge ok">✅ ${mon}は発送月</span>`);
-      else {
-        const nx = nextScheduledMonth(c, ym);
-        badges.push(`<span class="badge">💤 ${mon}はお休み${nx ? '（次は' + Number(nx.split('-')[1]) + '月）' : ''}</span>`);
-      }
+    else if (shipsInMonth(c, ym)) badges.push(`<span class="badge ok">✅ ${mon}に送る</span>`);
+    else {
+      const nx = nextScheduledMonth(c, ym);
+      badges.push(`<span class="badge">💤 ${mon}はお休み${nx ? '（次は' + shortYm(nx, ym) + '）' : ''}</span>`);
     }
-    return `<div class="card cust" data-action="edit-customer" data-id="${c.id}">
+    if (c.plan === '単発') {
+      badges.push(`<span class="badge primary">送る月：${c.shipMonths.length ? c.shipMonths.map((m) => shortYm(m, ym)).join('・') : '未設定'}</span>`);
+    }
+    return `<div class="card cust${shipsInMonth(c, ym) ? '' : ' resting'}" data-action="edit-customer" data-id="${c.id}">
       <div class="cust-row"><b style="font-size:17px">${esc(c.name) || '(名前なし)'}</b><span class="muted">›</span></div>
       <div class="ship-meta">${badges.join('')}</div>
       ${c.memo ? `<div class="ship-info">📝 ${esc(c.memo)}</div>` : ''}
@@ -414,7 +432,15 @@ function openCustomerSheet(cid) {
       <div class="field"><div class="hint">両方の味を頼む人は、それぞれの個数を入れてください。片方だけの人は、もう片方を0にします。</div></div>
       <div class="row2">
         <div class="field"><label>定期便の種類</label><select name="plan" id="planSel">${options(PLANS, c.plan)}</select></div>
-        <div class="field"><label>開始月</label><input type="month" name="startMonth" value="${esc(c.startMonth)}"></div>
+        <div class="field" id="startField"><label>開始月</label><input type="month" name="startMonth" value="${esc(c.startMonth)}"></div>
+      </div>
+      <div class="field ship-months" id="shipMonthsField">
+        <label>送る年月（単発）</label>
+        <div class="chips wrap" id="shipMonthsList"></div>
+        <div class="add-month">
+          <input type="month" id="shipMonthInput" value="${esc(state.ym)}">
+          <button type="button" class="btn" id="addShipMonth">＋ この月を追加</button>
+        </div>
       </div>
       <div class="field"><div class="hint" id="planHint"></div></div>
       <div class="row2">
@@ -433,10 +459,34 @@ function openCustomerSheet(cid) {
     </form>`);
 
   const form = $('#custForm');
+  // 単発の人の「送る年月」
+  let months = (c.shipMonths || []).slice();
+  const renderMonths = () => {
+    $('#shipMonthsList').innerHTML = months.length
+      ? months.map((m) => `<span class="chip active month-chip">${ymLabel(m)}<button type="button" class="chip-x" data-remove-month="${m}" aria-label="${ymLabel(m)}を外す">×</button></span>`).join('')
+      : '<span class="muted small">まだありません。下で年月を選んで「＋ この月を追加」を押してください。</span>';
+  };
+  $('#shipMonthsList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-remove-month]');
+    if (!b) return;
+    months = months.filter((m) => m !== b.dataset.removeMonth);
+    renderMonths();
+  });
+  $('#addShipMonth').addEventListener('click', () => {
+    const v = $('#shipMonthInput').value;
+    if (!isValidYm(v)) { toast('年月を選んでください'); return; }
+    months = normalizeMonths(months.concat(v));
+    renderMonths();
+    toast(ymLabel(v) + 'を追加しました');
+  });
+  renderMonths();
+
   const updateHint = () => {
     const plan = form.plan.value;
     const start = form.startMonth.value;
     const hint = $('#planHint');
+    $('#shipMonthsField').hidden = plan !== '単発';
+    $('#startField').hidden = plan === '単発';
     if (plan === '隔月' && isValidYm(start)) {
       const tmp = { plan, startMonth: start };
       const months = [];
@@ -446,7 +496,7 @@ function openCustomerSheet(cid) {
       }
       hint.textContent = '隔月の発送月：' + months.join('・') + ' …（開始月から2か月ごと）';
     } else if (plan === '単発') {
-      hint.textContent = '単発の人は、発送リストの「＋ 単発の人を追加」から注文があった月に追加します。';
+      hint.textContent = '単発の人は、選んだ年月の発送リストと在庫の計算にだけ入ります。また送るときは、別の年月を追加してください。';
     } else hint.textContent = '開始月から毎月の発送リストに表示されます。';
   };
   form.plan.addEventListener('change', updateHint);
@@ -461,6 +511,7 @@ function openCustomerSheet(cid) {
       qty: readQty(f),
       plan: f.get('plan'),
       startMonth: isValidYm(f.get('startMonth')) ? f.get('startMonth') : ymOf(),
+      shipMonths: months,
       delivery: f.get('delivery'),
       timeSlot: f.get('timeSlot'),
       paused: f.get('paused') === 'on',
@@ -470,11 +521,19 @@ function openCustomerSheet(cid) {
     };
     if (!data.name) { toast('顧客名を入力してください'); return; }
     if (!totalQty(data.qty) && !confirm('ザクロ・ゆずの個数がどちらも0個です。このまま保存しますか？')) return;
-    if (isNew) db.customers.push(Object.assign(c, data));
-    else Object.assign(findCustomer(db, cid), data);
+    if (data.plan === '単発' && !data.shipMonths.length) {
+      // 「＋ この月を追加」を押し忘れたときは、選んでいる年月を使う
+      const v = $('#shipMonthInput').value;
+      if (isValidYm(v) && confirm(`送る年月が追加されていません。${ymLabel(v)}に送る人として保存しますか？`)) data.shipMonths = [v];
+      else if (!confirm('送る年月がないため、どの月の発送リストにも出ません。このまま保存しますか？')) return;
+    }
+    let saved;
+    if (isNew) saved = Object.assign(c, data), db.customers.push(saved);
+    else saved = Object.assign(findCustomer(db, cid), data);
     persist();
     closeSheet();
-    toast(isNew ? '登録しました' : '保存しました');
+    const msg = isNew ? '登録しました' : '保存しました';
+    toast(!state.showResting && !shipsInMonth(saved, state.ym) ? `${msg}（${monthName(state.ym)}はお休みのため、一覧では隠れています）` : msg);
     render();
   });
 }
@@ -723,7 +782,9 @@ document.addEventListener('click', (e) => {
     case 'add-irregular': openAddIrregular(); break;
     case 'pick-irregular': {
       const c = findCustomer(db, id);
-      ensureRecord(db, state.ym, id, true);
+      if (!c) break;
+      if (c.plan === '単発') c.shipMonths = normalizeMonths((c.shipMonths || []).concat(state.ym));
+      else ensureRecord(db, state.ym, id, true); // 定期便の人を、この月だけ臨時で送る
       persist();
       closeSheet();
       toast(`${c ? c.name : ''}さんを追加しました`);
@@ -732,7 +793,10 @@ document.addEventListener('click', (e) => {
     }
     case 'remove-irregular':
       if (confirm('この月の発送リストから外しますか？（この月の記録も消えます）')) {
-        delete (db.records[el.dataset.ym || state.ym] || {})[id];
+        const ym = el.dataset.ym || state.ym;
+        const c = findCustomer(db, id);
+        if (c && c.plan === '単発') c.shipMonths = (c.shipMonths || []).filter((m) => m !== ym);
+        delete (db.records[ym] || {})[id];
         persist();
         closeSheet();
         render();
@@ -743,7 +807,7 @@ document.addEventListener('click', (e) => {
     case 'new-customer': openCustomerSheet(null); break;
     case 'edit-customer': openCustomerSheet(id); break;
     case 'delete-customer': deleteCustomer(id); break;
-    case 'toggle-paused': state.showPaused = !state.showPaused; render(); break;
+    case 'toggle-resting': state.showResting = !state.showResting; render(); break;
     case 'new-arrival': openArrivalSheet(); break;
     case 'delete-arrival':
       if (confirm('この入荷記録を削除しますか？')) {

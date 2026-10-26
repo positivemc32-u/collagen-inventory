@@ -227,7 +227,7 @@ function renderEvent() {
       <div class="panel-head"><h2>② 材料の使用量（返金）</h2><span data-calc="material"></span></div>
       <p class="hint">使用人数は、参加者が選んだ体験メニューから自動で数えます（例：アロマ占いだけの人は数えません）。違うときは −／＋ で直せます。
         単価×人数×返金の割合（${ms.map((mb) => `${esc(mb.name)} ${rateOf(ev, ms, mb.id)}%`).join('、')}）を返金します。
-        ふだんは「${esc(modeLabel(MAT_MODES[0], ms))}」。ほかの人も出したときは「${esc(modeLabel(MAT_MODES[1], ms))}」（1人目が半分、残りの半分を2人目・3人目で割る）を選んでください。</p>
+        ふだんは「${esc(modeLabel(MAT_MODES[0], ms))}」。ほかの人も出したときは「${esc(modeLabel(MAT_MODES[1], ms))}」（Aさんが半分、残りの半分をBさん・Cさんで割る）を選んでください。</p>
       <div class="mats">
         ${ev.materials.map((m) => matCardHtml(ev, m, ms)).join('')}
       </div>
@@ -572,6 +572,15 @@ function openMaterialsForm() {
   };
 }
 
+// 人を追加するときの仮の名前（Dさん・Eさん…。すでに使っている名前は飛ばす）
+function nextMemberName() {
+  const rows = [...document.querySelectorAll('#memRows .edit-row')];
+  const used = rows.map((r) => r.querySelector('[name=n]').value.trim());
+  let i = rows.filter((r) => r.dataset.id !== 'm_other').length;
+  while (i < 26 && used.includes(String.fromCharCode(65 + i) + 'さん')) i++;
+  return i < 26 ? String.fromCharCode(65 + i) + 'さん' : '';
+}
+
 function memRowHtml(m) {
   return `<div class="edit-row" data-id="${esc(m.id)}">
     <input name="n" value="${esc(m.name)}" placeholder="名前">
@@ -668,7 +677,8 @@ function renderSettings() {
     <form id="setForm">
       <section class="panel">
         <h2>材料を出す人と返金の割合</h2>
-        <p class="hint">材料の単価の何％をその人に返すか（例：1人目は50％、ほかは80％）。名前もここで変えられます。「等分」にチェックした人で、精算のときにマイナス（プラス）を等分します。</p>
+        <p class="hint">「Aさん」「Bさん」などの名前の欄を押して、本当の名前に書きかえてください。名前は<b>この端末の中にだけ</b>保存され、GitHub には載りません。「＋ 人を追加」で Dさん・Eさん…と増やせます。</p>
+        <p class="hint">％は、材料の単価の何％をその人に返すか（例：Aさんは50％、ほかは80％）。「等分」にチェックした人で、精算のときにマイナス（プラス）を等分します。</p>
         <div id="memRows">${s.members.map((m) => memRowHtml(m)).join('')}</div>
         <button type="button" class="btn small" data-add-row="mem">＋ 人を追加</button>
       </section>
@@ -718,7 +728,18 @@ function renderSettings() {
       const k = add.dataset.addRow;
       const simple = `<div class="edit-row" data-id="${uid()}"><input name="n" placeholder="名前"><button type="button" class="icon-btn" data-del-row aria-label="削除">🗑</button></div>`;
       const box = { mem: '#memRows', mat: '#setMatRows', menu: '#menuRows', exp: '#expRows' }[k];
-      const html = { mem: () => memRowHtml({ id: uid(), name: '', rate: 80, share: false }), exp: () => simple }[k];
+      if (k === 'mem') {
+        // Dさん・Eさん…の名前で、「その他」の行の前に足す
+        $(box).querySelector('[data-id="m_other"]')
+          ? $(box).querySelector('[data-id="m_other"]').insertAdjacentHTML('beforebegin', memRowHtml({ id: uid(), name: nextMemberName(), rate: 80, share: false }))
+          : $(box).insertAdjacentHTML('beforeend', memRowHtml({ id: uid(), name: nextMemberName(), rate: 80, share: false }));
+        const rows = [...$(box).querySelectorAll('.edit-row')];
+        const input = rows[rows.length - ($(box).querySelector('[data-id="m_other"]') ? 2 : 1)].querySelector('input');
+        input.focus();
+        input.select();
+        return;
+      }
+      const html = { exp: () => simple }[k];
       const blank = { id: uid(), name: '', price: 0, mats: [] };
       $(box).insertAdjacentHTML('beforeend', html ? html() : k === 'menu' ? menuRowHtml(blank) : matRowHtml(blank));
       $(box).lastElementChild.querySelector('input').focus();

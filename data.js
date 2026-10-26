@@ -6,7 +6,8 @@
 
 const STORAGE_KEY = 'collagen-app-v1';
 const PRE_V2_BACKUP_KEY = 'collagen-app-v1-backup-before-v2'; // 形式変更前のデータの控え
-const DATA_VERSION = 2;
+const PRE_V3_BACKUP_KEY = 'collagen-app-v2-backup-before-v3';
+const DATA_VERSION = 3;
 const BACKUP_REMIND_DAYS = 14; // この日数バックアップしていないとお知らせ
 const MAX_LIST_MONTHS = 36; // 一覧に並べる最大の月数
 
@@ -80,6 +81,13 @@ function migrateDb(db) {
     return out;
   });
   const records = db.records || {};
+  db.customers.forEach((c) => {
+    // 以前のデータ（「送る月」の項目がない）の単発の人は、記録がある月を送る月として引き継ぐ
+    if (c.shipMonths === undefined && c.plan === '単発') {
+      c.shipMonths = Object.keys(records).filter((ym) => records[ym] && records[ym][c.id]);
+    }
+    c.shipMonths = normalizeMonths(c.shipMonths);
+  });
   Object.keys(records).forEach((ym) => {
     Object.keys(records[ym] || {}).forEach((cid) => {
       const r = Object.assign({}, records[ym][cid]);
@@ -94,6 +102,11 @@ function migrateDb(db) {
   return db;
 }
 
+// 「送る月」の一覧を、重複なし・古い順にそろえる
+function normalizeMonths(list) {
+  return Array.from(new Set((Array.isArray(list) ? list : []).filter(isValidYm))).sort();
+}
+
 function loadDb() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -102,7 +115,8 @@ function loadDb() {
     const oldVersion = (db.meta && db.meta.version) || 1;
     if (oldVersion < DATA_VERSION) {
       // 念のため、形式を変える前のデータをそのまま控えておく
-      if (!localStorage.getItem(PRE_V2_BACKUP_KEY)) localStorage.setItem(PRE_V2_BACKUP_KEY, raw);
+      const key = oldVersion < 2 ? PRE_V2_BACKUP_KEY : PRE_V3_BACKUP_KEY;
+      if (!localStorage.getItem(key)) localStorage.setItem(key, raw);
       migrateDb(db);
       saveDb(db);
       return db;
@@ -126,6 +140,7 @@ function newCustomer() {
     qty: { ザクロ: 1, ゆず: 0 },
     plan: '毎月',
     startMonth: ymOf(),
+    shipMonths: [], // 単発の人が送る月（例：['2026-10', '2026-12']）
     delivery: '直送',
     timeSlot: '指定なし',
     paused: false,
@@ -140,14 +155,15 @@ function findCustomer(db, id) {
   return db.customers.find((c) => c.id === id);
 }
 
-// 隔月・毎月の「予定上の」発送月かどうか（休止は考えない）
+// その月が「予定上の」発送月かどうか（休止は考えない）
 function isScheduledMonth(c, ym) {
+  if (c.plan === '単発') return (c.shipMonths || []).includes(ym);
   if (!isValidYm(c.startMonth)) return c.plan === '毎月';
   const diff = monthDiff(c.startMonth, ym);
   if (diff < 0) return false;
   if (c.plan === '毎月') return true;
   if (c.plan === '隔月') return diff % 2 === 0;
-  return false; // 単発は手動で追加
+  return false;
 }
 
 // 隔月の人の次の発送月（ym を含む）
@@ -186,15 +202,21 @@ function ensureRecord(db, ym, cid, irregular) {
   return db.records[ym][cid];
 }
 
-// その月の発送リスト（記録が未作成の人は顧客情報から仮表示）
+// その月に送るかどうか（休止中の人は送らない）
+function shipsInMonth(c, ym) {
+  return !c.paused && isScheduledMonth(c, ym);
+}
+
+// その月の発送リスト：その月に送る人だけ（記録が未作成の人は顧客情報から仮表示）
+// お休みの月の人は出さない。ただし、その月に実際に発送・手渡しした記録や、
+// 「その他」から臨時で追加した記録がある人は、履歴として残す。
 function shipList(db, ym) {
   const recs = db.records[ym] || {};
   const list = [];
   db.customers.forEach((c) => {
     const rec = recs[c.id] || null;
-    const scheduled = !c.paused && isScheduledMonth(c, ym);
-    // 休止中でも、その月に既に記録（発送済みなど）がある人は残す
-    const keepByRecord = rec && (rec.irregular || rec.status !== '未対応' || !c.paused);
+    const scheduled = shipsInMonth(c, ym);
+    const keepByRecord = rec && (isDone(rec.status) || (rec.irregular && c.plan !== '単発'));
     if (scheduled || keepByRecord) {
       list.push({
         customer: c,
@@ -215,6 +237,10 @@ function listMonths(db) {
   db.customers.forEach((c) => {
     if (isValidYm(c.startMonth) && c.startMonth < first) first = c.startMonth;
   });
+  db.customers.forEach((c) => (c.shipMonths || []).forEach((ym) => {
+    if (ym < first) first = ym;
+    if (ym > last) last = ym;
+  }));
   Object.keys(db.records).forEach((ym) => {
     if (!isValidYm(ym) || !Object.keys(db.records[ym] || {}).length) return;
     if (ym < first) first = ym;
@@ -305,7 +331,7 @@ function needsBackupReminder(db) {
 // 1つのCSVファイルに「種別」列で4種類のデータをまとめます。
 // 顧客・発送記録の個数は「ザクロ個数」「ゆず個数」列、在庫・入荷は「味」「個数」列を使います。
 const CSV_COLUMNS = [
-  '種別', 'ID', '月', '顧客名', 'ザクロ個数', 'ゆず個数', '味', '個数', '定期便', '開始月', '受け渡し', '時間指定',
+  '種別', 'ID', '月', '顧客名', 'ザクロ個数', 'ゆず個数', '味', '個数', '定期便', '開始月', '送る月', '受け渡し', '時間指定',
   '休止中', '住所', '電話番号', 'メモ', '状況', '伝票', '伝票番号', '入金', '単発追加', '日付', '登録日時',
 ];
 
@@ -320,7 +346,7 @@ function toCsv(db) {
 
   db.customers.forEach((c) => rows.push(row({
     '種別': '顧客', 'ID': c.id, '顧客名': c.name, 'ザクロ個数': c.qty.ザクロ, 'ゆず個数': c.qty.ゆず, '定期便': c.plan,
-    '開始月': c.startMonth, '受け渡し': c.delivery, '時間指定': c.timeSlot, '休止中': c.paused ? 'はい' : 'いいえ',
+    '開始月': c.startMonth, '送る月': (c.shipMonths || []).join(' '), '受け渡し': c.delivery, '時間指定': c.timeSlot, '休止中': c.paused ? 'はい' : 'いいえ',
     '住所': c.address, '電話番号': c.phone, 'メモ': c.memo, '登録日時': c.createdAt,
   })));
 
@@ -407,6 +433,7 @@ function fromCsv(text) {
           qty: qtyFromCsv(o),
           plan: pick(PLANS, o['定期便'] === 'イレギュラー' ? '単発' : o['定期便'], '毎月'),
           startMonth: isValidYm(o['開始月']) ? o['開始月'] : ymOf(),
+          shipMonths: '送る月' in o ? (o['送る月'] || '').split(/[\s,、]+/) : undefined,
           delivery: pick(DELIVERIES, o['受け渡し'], '直送'),
           timeSlot: pick(TIME_SLOTS, o['時間指定'], '指定なし'),
           paused: o['休止中'] === 'はい',
@@ -448,7 +475,7 @@ function fromCsv(text) {
         break;
     }
   });
-  return db;
+  return migrateDb(db); // 以前のCSV（送る月の列がない）でも単発の人の送る月を引き継ぐ
 }
 
 // Node.js でのテスト用（ブラウザでは無視されます）
@@ -456,6 +483,6 @@ if (typeof module !== 'undefined') {
   module.exports = {
     FLAVORS, ymOf, addMonths, monthDiff, isScheduledMonth, shipList, calcStock, ensureRecord,
     ensureInventory, toCsv, fromCsv, emptyDb, newCustomer, previousEnding, needsBackupReminder,
-    migrateDb, listMonths, allRows, normalizeQty,
+    migrateDb, listMonths, allRows, normalizeQty, shipsInMonth, normalizeMonths, isDone,
   };
 }
