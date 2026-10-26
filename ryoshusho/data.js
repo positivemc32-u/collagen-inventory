@@ -45,6 +45,8 @@ function defaultDb() {
       nextNo: 1,
     },
     receipts: [],
+    lastBackup: null, // 最後にバックアップを書き出した日時
+    backupLog: [], // バックアップ・読み込みの履歴（新しい順、最大50件）
   };
 }
 
@@ -57,11 +59,45 @@ function loadDb() {
     db.settings = { ...def.settings, ...(db.settings || {}) };
     if (!db.settings.issuers || !db.settings.issuers.length) db.settings.issuers = def.settings.issuers;
     db.receipts = db.receipts || [];
+    db.backupLog = db.backupLog || [];
+    if (db.lastBackup === undefined) db.lastBackup = null;
     return db;
   } catch (e) {
     console.warn('読み込み失敗', e);
     return defaultDb();
   }
+}
+
+// ---------- バックアップ（.json ファイル） ----------
+// 発行元・番号・領収書の履歴をまるごと1つのファイルにします。バックアップの履歴自体は入れません。
+const BACKUP_KIND = 'ryoshusho-backup';
+
+function exportJson(db) {
+  const { backupLog, lastBackup, ...rest } = db;
+  return JSON.stringify({ kind: BACKUP_KIND, version: 1, exportedAt: new Date().toISOString(), db: rest }, null, 1);
+}
+
+// 読み込んだファイルを確かめて、アプリで使える形にする（おかしいときはエラー）
+function importJson(text) {
+  let d;
+  try { d = JSON.parse(text); } catch (e) { throw new Error('ファイルの形がちがいます（領収書アプリのバックアップを選んでください）'); }
+  if (!d || d.kind !== BACKUP_KIND || !d.db) throw new Error('領収書アプリのバックアップではありません');
+  const src = d.db;
+  if (!Array.isArray(src.receipts)) throw new Error('領収書のデータが見つかりません');
+  const def = defaultDb();
+  const settings = { ...def.settings, ...(src.settings || {}) };
+  if (!Array.isArray(settings.issuers) || !settings.issuers.length) settings.issuers = def.settings.issuers;
+  const receipts = src.receipts.filter((r) => r && r.id && Array.isArray(r.items));
+  const maxNo = receipts.reduce((m, r) => Math.max(m, Number(r.no) || 0), 0);
+  if (!(settings.nextNo > maxNo)) settings.nextNo = maxNo + 1;
+  return { db: { ...def, settings, receipts }, exportedAt: d.exportedAt || null };
+}
+
+function receiptsTotal(list) { return list.reduce((sum, r) => sum + calcReceipt(r).total, 0); }
+
+function addBackupLog(db, entry) {
+  db.backupLog.unshift({ at: new Date().toISOString(), count: db.receipts.length, total: receiptsTotal(db.receipts), ...entry });
+  db.backupLog = db.backupLog.slice(0, 50);
 }
 
 function saveDb(db) {

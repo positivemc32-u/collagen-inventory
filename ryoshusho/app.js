@@ -34,13 +34,15 @@ function toast(msg) {
 }
 
 // ---------- 全体の描画 ----------
-const TITLES = { create: '領収書を作る', history: '発行の履歴', settings: '設定' };
+const TITLES = { create: '領収書を作る', history: '発行の履歴', backup: 'バックアップ', settings: '設定' };
+const RESTORE_UNDO_KEY = STORAGE_KEY + '-before-restore';
 
 function render() {
   $('#pageTitle').textContent = TITLES[state.tab];
   $('#pageHint').textContent = state.tab === 'create' && state.draft.id ? 'No.' + noLabel(state.draft.no) : '';
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
-  ({ create: renderCreate, history: renderHistory, settings: renderSettings })[state.tab]();
+  ({ create: renderCreate, history: renderHistory, backup: renderBackup, settings: renderSettings })[state.tab]();
+  renderNotices();
   if (state.tab !== render.lastTab) window.scrollTo(0, 0);
   render.lastTab = state.tab;
 }
@@ -317,6 +319,128 @@ function exportCsv() {
   downloadFile(new File([csv], 'receipt_history_' + todayStr() + '.csv', { type: 'text/csv' }));
 }
 
+// ---------- バックアップ ----------
+// 14日以上バックアップしていないと、画面の上にお知らせを出す
+function renderNotices() {
+  const box = $('#notices');
+  const since = db.lastBackup || (db.receipts[0] && db.receipts[0].createdAt);
+  const days = since ? (Date.now() - new Date(since).getTime()) / 86400000 : 0;
+  box.innerHTML = db.receipts.length && (!db.lastBackup || days > 14) && state.tab !== 'backup'
+    ? `<div class="notice">💾 ${db.lastBackup ? Math.floor(days) + '日' : 'まだ一度も'}バックアップしていません。<button type="button" class="link" data-go="backup">バックアップする</button></div>`
+    : '';
+}
+
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+const LOG_LABEL = { download: '📥 この端末に保存', share: '📤 共有メニューで送った', restore: '📂 読み込んだ', undo: '↩️ 読み込む前に戻した' };
+
+function hasRestoreUndo() {
+  try { return !!localStorage.getItem(RESTORE_UNDO_KEY); } catch (e) { return false; }
+}
+
+function renderBackup() {
+  const total = receiptsTotal(db.receipts);
+  main.innerHTML = `
+    <section class="panel">
+      <h2>💾 バックアップ・他の端末へ移す</h2>
+      <span class="hint">領収書の履歴・発行元・次の番号を、まるごと1つのファイル（.json）にします。機種変更や、パソコンと携帯で同じ履歴を使うときは、片方で書き出したファイルをもう片方で読み込んでください。</span>
+      <div class="backup-now">
+        <div>いまの履歴：<b>${db.receipts.length}枚</b>（合計 ${yen(total)}）</div>
+        <div>最後のバックアップ：<b>${db.lastBackup ? esc(fmtDateTime(db.lastBackup)) : 'まだありません'}</b></div>
+      </div>
+      <button type="button" class="btn primary block" data-act="backup-download">📥 バックアップをこの端末に保存</button>
+      ${navigator.share ? '<button type="button" class="btn block" data-act="backup-share">📤 共有メニューから保存・送る（"ファイル"・iCloud・LINEなど）</button>' : ''}
+      <span class="hint">🔒 ファイルにはお客様の名前や住所が入っています。自分だけが見られる場所（iPhone の「ファイル」、iCloud Drive、Google ドライブなど）に保存してください。GitHub には入れないでください。</span>
+    </section>
+    <section class="panel">
+      <h2>📂 バックアップから戻す</h2>
+      <span class="hint">読み込むと、今この端末にある履歴と設定がファイルの内容に置き換わります（読み込む前の状態は1回分とっておくので、すぐ元に戻せます）。</span>
+      <label class="btn block file-btn">📂 バックアップファイルを選ぶ<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+      ${hasRestoreUndo() ? '<button type="button" class="btn block" data-act="restore-undo">↩️ 読み込む前の状態に戻す</button>' : ''}
+    </section>
+    <section class="panel">
+      <h2>📚 バックアップの履歴</h2>
+      ${db.backupLog.length ? `<table class="result">
+        <tr><th>日時</th><th>したこと</th><th class="num">枚数</th></tr>
+        ${db.backupLog.map((l) => `<tr><td>${esc(fmtDateTime(l.at))}</td><td>${esc(LOG_LABEL[l.type] || l.type)}${l.from ? `<br><small>${esc(l.from)}</small>` : ''}</td><td class="num">${l.count}枚<br><small>${yen(l.total)}</small></td></tr>`).join('')}
+      </table>` : '<p class="empty small">まだありません</p>'}
+    </section>
+    <section class="panel">
+      <h2>📄 Excel 用に書き出す</h2>
+      <span class="hint">履歴の一覧を CSV で書き出します（Excel・Numbers・Google スプレッドシートで開けます）。CSV からは元に戻せないので、バックアップには上の「バックアップを保存」を使ってください。</span>
+      <button type="button" class="btn block" data-act="csv">📄 履歴を CSV で書き出す</button>
+    </section>`;
+  $('#importFile').onchange = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const { db: next, exportedAt } = importJson(await file.text());
+      const when = exportedAt ? fmtDateTime(exportedAt) + ' に書き出した' : '';
+      if (!confirm(`${when}バックアップを読み込みます。\n領収書 ${next.receipts.length}枚（合計 ${yen(receiptsTotal(next.receipts))}）\n\n今この端末にある ${db.receipts.length}枚の履歴と設定は置き換わります。よろしいですか？`)) return;
+      try { localStorage.setItem(RESTORE_UNDO_KEY, JSON.stringify(db)); } catch (err) { /* 容量不足でも読み込みは続ける */ }
+      next.lastBackup = db.lastBackup;
+      next.backupLog = db.backupLog;
+      db = next;
+      addBackupLog(db, { type: 'restore', from: file.name });
+      persist();
+      state.draft = blankReceipt(db);
+      toast('読み込みました（' + db.receipts.length + '枚）');
+      render();
+    } catch (err) {
+      alert('読み込めませんでした：' + err.message);
+    }
+  };
+}
+
+function backupFile() {
+  const d = new Date();
+  const stamp = todayStr().replace(/-/g, '') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+  return new File([exportJson(db)], 'ryoshusho-backup-' + stamp + '.json', { type: 'application/json' });
+}
+
+function markBackup(type) {
+  db.lastBackup = new Date().toISOString();
+  addBackupLog(db, { type });
+  persist();
+  render();
+}
+
+async function backupShare() {
+  const file = backupFile();
+  if (navigator.canShare && !navigator.canShare({ files: [file] })) { downloadFile(file); markBackup('download'); toast('この端末に保存しました'); return; }
+  try {
+    await navigator.share({ files: [file], title: '領収書 バックアップ' });
+    markBackup('share');
+    toast('バックアップしました');
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    downloadFile(file);
+    markBackup('download');
+    toast('共有できなかったので、この端末に保存しました');
+  }
+}
+
+function restoreUndo() {
+  let prev = null;
+  try { prev = JSON.parse(localStorage.getItem(RESTORE_UNDO_KEY)); } catch (e) { prev = null; }
+  if (!prev) { toast('戻せるデータがありません'); return; }
+  if (!confirm(`読み込む前の状態（領収書 ${(prev.receipts || []).length}枚）に戻しますか？`)) return;
+  const log = db.backupLog;
+  db = prev;
+  db.receipts = db.receipts || [];
+  db.backupLog = log;
+  addBackupLog(db, { type: 'undo' });
+  persist();
+  try { localStorage.removeItem(RESTORE_UNDO_KEY); } catch (e) { /* 消せなくても困らない */ }
+  state.draft = blankReceipt(db);
+  toast('元に戻しました');
+  render();
+}
+
 // ---------- 設定 ----------
 function renderSettings() {
   main.innerHTML = `
@@ -343,7 +467,7 @@ function renderSettings() {
     </section>
     <section class="panel">
       <h2>このアプリについて</h2>
-      <span class="hint">履歴はこの端末のブラウザの中だけに保存されます（インターネットには送られません）。ときどき「履歴」画面から CSV を書き出して保存してください。</span>
+      <span class="hint">履歴はこの端末のブラウザの中だけに保存されます（インターネットには送られません）。ときどき「💾 バックアップ」画面からバックアップを保存してください。</span>
       <span class="hint">消費税は税率ごとに合計してから計算し、1円未満は切り捨てています。</span>
     </section>
   `;
@@ -436,12 +560,20 @@ main.addEventListener('click', (e) => {
       toast('履歴に保存しました（No.' + noLabel(state.draft.no) + '）');
       break;
     case 'csv': exportCsv(); break;
+    case 'backup-download': downloadFile(backupFile()); markBackup('download'); toast('この端末に保存しました'); break;
+    case 'backup-share': backupShare(); break;
+    case 'restore-undo': restoreUndo(); break;
     case 'addIssuer':
       issuers().push({ ...issuers()[0], id: uid(), name: '' });
       persist();
       render();
       break;
   }
+});
+
+$('#notices').addEventListener('click', (e) => {
+  const go = e.target.closest('[data-go]');
+  if (go) { state.tab = go.dataset.go; render(); }
 });
 
 $('#tabbar').addEventListener('click', (e) => {
