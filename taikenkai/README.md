@@ -3,7 +3,7 @@
 化粧品の体験会（3人で運営）の **売上・材料の返金・駐車場代の返金・経費** をまとめて計算し、**残高** をその場で出すアプリです。
 パソコンでも携帯でも、ブラウザで開くだけで使えます。
 
-- URL：`https://（ユーザー名）.github.io/collagen-inventory/taikenkai/`
+- URL：<https://positivemc32-u.github.io/collagen-inventory/taikenkai/>
   （コラーゲン管理アプリと同じ GitHub Pages の中にあります。main に取り込めば自動で公開されます）
 - 携帯ではホーム画面に追加すると、アプリのように使えます（方法は上のフォルダの README と同じです）
 

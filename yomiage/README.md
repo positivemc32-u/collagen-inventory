@@ -3,7 +3,7 @@
 **文字を音声で読み上げる** ことと、**話した声を文字にする** ことができるアプリです。
 パソコンでも携帯でも、ブラウザで開くだけで使えます（インストール不要）。
 
-- URL：`https://（ユーザー名）.github.io/collagen-inventory/yomiage/`
+- URL：<https://positivemc32-u.github.io/collagen-inventory/yomiage/>
   （コラーゲン管理アプリと同じ GitHub Pages の中にあります。main に取り込めば自動で公開されます）
 - 携帯ではホーム画面に追加すると、アプリのように使えます
 
