@@ -202,3 +202,6 @@ table.result .num { text-align: right; white-space: nowrap; }
 table.result .link { padding: 0; text-align: left; }
 .hist-memo { grid-column: 1 / -1; font-size: .85rem; background: var(--bg); border-radius: 8px; padding: 4px 8px; margin-top: 4px; white-space: pre-wrap; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.issuer-top { display: flex; gap: 8px; align-items: center; }
+.issuer details { margin-top: 8px; }
+.issuer summary { font-size: .85rem; color: var(--muted); cursor: pointer; }
