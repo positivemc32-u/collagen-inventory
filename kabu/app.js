@@ -8,7 +8,7 @@
 // （アプリ本体を更新しなくても、ニュースだけ毎日新しくなる仕組み）
 const REMOTE_BASE = 'https://raw.githubusercontent.com/positivemc32-u/collagen-inventory/kabu-data/kabu/data/';
 const LOCAL_BASE = './data/';
-const LS = { budget: 'kabu.budget', cache: 'kabu.cache', horizon: 'kabu.horizon' };
+const LS = { budget: 'kabu.budget', cache: 'kabu.cache', horizon: 'kabu.horizon', voice: 'kabu.voice' };
 const DEFAULT_BUDGET = 50000;
 const BUDGET_PRESETS = [10000, 30000, 50000, 100000, 300000];
 const TITLES = { today: '今日のまとめ', picks: '買うなら？', calendar: '日程・配当', stories: '企業の裏話', settings: '設定' };
@@ -112,6 +112,7 @@ function render() {
   const main = $('#main');
   if (!d) { main.innerHTML = '<p class="loading">ニュースを読み込めませんでした。電波のよい所でもう一度開いてください。</p>'; return; }
   main.innerHTML = ({ today: viewToday, picks: viewPicks, calendar: viewCalendar, stories: viewStories, settings: viewSettings })[state.tab]();
+  syncPlayer();
 }
 
 function renderNotices() {
@@ -146,7 +147,7 @@ function viewToday() {
   const base = d.date;
   const week = (d.events || []).filter((e) => { const k = daysBetween(base, e.date); return k >= 0 && k <= 7; });
   return `
-    <div class="headline">${esc(d.headline)}</div>
+    ${newsVisual(d)}
     <section class="panel">
       <h2>📈 市場の動き</h2>
       <p>${esc(m.summary)}</p>
@@ -243,6 +244,7 @@ function viewSettings() {
       <button type="button" class="btn block" data-act="budget">好きな金額を入力する</button>
       <p class="small muted">予算はこのスマホの中だけに保存されます。銘柄の画面で「何株買えるか」の計算に使います。</p>
     </section>
+    ${voiceSettings()}
     <section class="panel">
       <h2>🗂 過去のニュース</h2>
       <div class="date-list">${state.dates.map((dt) => `<button type="button" class="chip ${dt === state.viewing ? 'on' : ''}" data-date="${dt}">${esc(mdw(dt))}</button>`).join('') || '<p class="muted">まだありません。</p>'}</div>
@@ -254,6 +256,169 @@ function viewSettings() {
       <button type="button" class="btn block" data-act="reload">🔄 ニュースを読み込み直す</button>
     </section>`;
 }
+
+// ---------- ニュース画像（クラゲのキャスター＋テロップ） ----------
+function tickerText(d) {
+  const idx = (d.market?.indices || []).map((i) => `${i.name} ${i.value}（${i.dir === 'up' ? '▲' : i.dir === 'down' ? '▼' : ''}${i.change}）`);
+  return [d.headline, ...idx].join('　｜　');
+}
+function newsVisual(d) {
+  const t = esc(tickerText(d));
+  return `<section class="newsvis" role="button" tabindex="0" aria-label="タップで今日のニュースを読み上げ">
+    <div class="nv-top"><span class="nv-live">● NEWS</span><span>${esc(mdw(d.date))}のニュース</span><span class="nv-hint">タップで読み上げ ▶</span></div>
+    <div class="nv-stage">
+      <div class="nv-caster">${jellySVG(92, 'nv-jelly')}<div class="nv-desk"></div></div>
+      <div class="nv-caption" id="nvCaption">${esc(d.headline)}</div>
+    </div>
+    <div class="nv-telop"><span class="nv-label" id="nvLabel">速報</span>
+      <div class="nv-window"><div class="nv-track" id="nvTrack"><span>${t}</span><span aria-hidden="true">${t}</span></div>
+      <div class="nv-now" id="nvNow" hidden></div></div></div>
+  </section>`;
+}
+
+// ---------- 読み上げ ----------
+function spokenDate(s) { const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日、${WD[d.getDay()]}曜日`; }
+function spokenTime(t) { return String(t || '').replace(/(\d{1,2}):(\d{2})/g, (_, h, m) => (m === '00' ? `${h}時` : `${h}時${Number(m)}分`)); }
+function spokenChange(i) {
+  const c = String(i.change || '');
+  if (/^-/.test(c)) return `前より${c.slice(1)}下がりました`;
+  if (/^\+/.test(c)) return `前より${c.slice(1)}上がりました`;
+  return c;
+}
+const noEmoji = (s) => String(s).replace(/^[^\p{L}\p{N}]+/u, '');
+
+// 今の画面の内容を、読み上げ用の文章にする
+function buildScript(tab) {
+  const d = state.data; if (!d) return [];
+  const items = []; const add = (section, text) => { if (text) items.push({ section, text: String(text).replace(/([^。！？!?])$/, '$1。') }); };
+  if (tab === 'today' || tab === 'settings') {
+    add('今日のひと言', `${spokenDate(d.date)}のニュースです。${d.headline}`);
+    add('市場の動き', d.market?.summary);
+    (d.market?.indices || []).forEach((i) => add('市場の動き', `${i.name}は${i.value}。${spokenChange(i)}`));
+    (d.market?.points || []).forEach((p) => add('つまり', p));
+    const week = (d.events || []).filter((e) => { const k = daysBetween(d.date, e.date); return k >= 0 && k <= 7; });
+    if (week.length) add('1週間の予定', 'これから1週間の大事な予定です');
+    week.forEach((e) => add('1週間の予定', `${spokenDate(e.date)}${e.time ? '、' + spokenTime(e.time) : ''}。${e.title}。${e.why}`));
+    if (d.lesson) add('今日の用語', `${d.lesson.title}。${d.lesson.body}`);
+  } else if (tab === 'picks') {
+    const budget = getBudget();
+    add('買うなら', `予算${budget.toLocaleString('ja-JP')}円で買うなら、のアイデアです。${d.plan?.note || ''}`);
+    (d.picks || []).filter((p) => state.horizon === 'all' || p.horizon === state.horizon || p.horizon === 'both').forEach((p) => {
+      add(p.name, `${p.name}。${p.kind === 'watch' ? '見るだけの銘柄' : HORIZON[p.horizon]}です。${noEmoji(fitFor(p, budget).text)}`);
+      add(p.name, `理由。${p.reason}`);
+      add(p.name, `注意。${p.risk}`);
+    });
+    add('おわり', '最終判断はご自身でお願いします');
+  } else if (tab === 'calendar') {
+    (d.events || []).slice().sort((a, b) => a.date.localeCompare(b.date))
+      .forEach((e) => add('予定', `${spokenDate(e.date)}${e.time ? '、' + spokenTime(e.time) : ''}。${e.title}。${e.why}`));
+    (d.dividends || []).forEach((x) => add('配当・優待', `${x.name}。${spokenDate(x.lastDay)}までに買うと、${x.content}。${x.note || ''}`));
+  } else if (tab === 'stories') {
+    (d.stories || []).forEach((s) => add(s.tag, `${s.title}。${s.body}`));
+  }
+  return items;
+}
+
+const TAB_NAMES = { today: '今日のまとめ', picks: '銘柄', calendar: '日程', stories: '裏話', settings: '今日のまとめ' };
+function startReading(tab) {
+  const items = buildScript(tab);
+  if (!items.length) { toast('読み上げる内容がありません'); return; }
+  state.readingTab = tab;
+  Speaker.play(items);
+  if (!Speaker.supported() && !Speaker.settings.muted) toast('このブラウザは音声に対応していないため、テロップだけ流します');
+}
+function togglePlay() {
+  if (Speaker.state === 'playing') Speaker.pause();
+  else if (Speaker.state === 'paused') Speaker.resume();
+  else startReading(state.tab);
+}
+
+function showLine(line, i, n) {
+  $('#playerLine').textContent = `${TAB_NAMES[state.readingTab] || ''}（${i + 1}/${n}） ${line.telop}`;
+  const now = $('#nvNow');
+  if (now) {
+    now.hidden = false; now.textContent = line.telop;
+    now.classList.remove('pop'); void now.offsetWidth; now.classList.add('pop');
+    $('#nvTrack').hidden = true;
+    $('#nvLabel').textContent = line.section || '読み上げ中';
+  }
+}
+
+function syncPlayer() {
+  const st = Speaker.state; const s = Speaker.settings;
+  $('#plPlay').textContent = st === 'playing' ? '⏸' : '▶';
+  $('#plPlay').setAttribute('aria-label', st === 'playing' ? '一時停止' : '読み上げ');
+  $('#plMute').textContent = s.muted ? '🔇' : '🔊';
+  $('#plMute').classList.toggle('on', s.muted);
+  $('#plRate').textContent = `${s.rate}倍`;
+  $('#plVoice').textContent = s.gender === 'male' ? '👨 男性' : '👩 女性';
+  document.body.classList.toggle('speaking', st === 'playing');
+  if (st === 'stopped') {
+    $('#playerLine').textContent = '▶ を押すと、この画面のニュースを読み上げます';
+    const now = $('#nvNow'); if (now) { now.hidden = true; $('#nvTrack').hidden = false; $('#nvLabel').textContent = '速報'; }
+  } else if (Speaker.lines[Speaker.index]) {
+    showLine(Speaker.lines[Speaker.index], Speaker.index, Speaker.lines.length);
+  }
+}
+
+function saveVoice() { lsSet(LS.voice, Speaker.settings); }
+
+function setupPlayer() {
+  $('#plPlay').addEventListener('click', togglePlay);
+  $('#plStop').addEventListener('click', () => Speaker.stop());
+  $('#plMute').addEventListener('click', () => {
+    Speaker.setMuted(!Speaker.settings.muted); saveVoice(); syncPlayer();
+    toast(Speaker.settings.muted ? 'ミュートにしました（テロップだけ流れます）' : '音を出します');
+    if (state.tab === 'settings') render();
+  });
+  $('#plRate').addEventListener('click', () => {
+    const i = RATES.indexOf(Speaker.settings.rate);
+    Speaker.setRate(RATES[(i + 1) % RATES.length]); saveVoice(); syncPlayer();
+    if (state.tab === 'settings') render();
+  });
+  $('#plVoice').addEventListener('click', () => {
+    Speaker.setGender(Speaker.settings.gender === 'male' ? 'female' : 'male'); saveVoice(); syncPlayer();
+    toast(`${VOICES[Speaker.settings.gender].label}の声にしました`);
+    if (state.tab === 'settings') render();
+  });
+  // 画面を切り替えたら読み上げは止める
+  document.getElementById('tabbar').addEventListener('click', () => { if (Speaker.state !== 'stopped') Speaker.stop(); }, true);
+}
+
+function voiceSettings() {
+  const s = Speaker.settings;
+  const opts = (g) => {
+    const list = Speaker.jaVoices;
+    return `<option value="">おまかせ</option>` + list.map((v) => `<option value="${esc(v.voiceURI)}" ${s.voiceURI[g] === v.voiceURI ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+  };
+  const note = !Speaker.supported() ? 'このブラウザは音声の読み上げに対応していません（テロップだけ流れます）。'
+    : !Speaker.jaVoices.length ? '日本語の声が見つかりません。端末の設定で日本語の読み上げ音声を追加してください。'
+    : Speaker.hasMale() ? '' : 'この端末には男性の声がないため、男性を選ぶと声を低くして読みます。';
+  return `<section class="panel">
+      <h2>🔊 読み上げ</h2>
+      <h3>声の種類</h3>
+      <div class="chips">
+        <button type="button" class="chip ${s.gender === 'male' ? 'on' : ''}" data-gender="male">👨 落ち着いた男性</button>
+        <button type="button" class="chip ${s.gender === 'female' ? 'on' : ''}" data-gender="female">👩 落ち着いた女性</button>
+      </div>
+      <h3>読む速さ</h3>
+      <div class="chips">${RATES.map((r) => `<button type="button" class="chip ${s.rate === r ? 'on' : ''}" data-rate="${r}">${r}倍</button>`).join('')}</div>
+      <h3>音</h3>
+      <div class="chips">
+        <button type="button" class="chip ${!s.muted ? 'on' : ''}" data-act="unmute">🔊 音を出す</button>
+        <button type="button" class="chip ${s.muted ? 'on' : ''}" data-act="mute">🔇 ミュート（テロップだけ）</button>
+      </div>
+      ${Speaker.jaVoices.length ? `<details class="voice-detail"><summary>端末の声をくわしく選ぶ</summary>
+        <label class="small muted">男性に使う声</label><select data-voice="male">${opts('male')}</select>
+        <label class="small muted">女性に使う声</label><select data-voice="female">${opts('female')}</select></details>` : ''}
+      ${note ? `<p class="small muted">${esc(note)}</p>` : ''}
+      <button type="button" class="btn block" data-act="testVoice">🔈 試しに聞く</button>
+    </section>`;
+}
+document.addEventListener('change', (e) => {
+  const g = e.target.dataset && e.target.dataset.voice;
+  if (g) { Speaker.setVoice(g, e.target.value); saveVoice(); }
+});
 
 // ---------- シート（下から出る画面） ----------
 function openSheet(html) {
@@ -284,6 +449,7 @@ function setBudget(v) {
 
 // ---------- ボタンの動き ----------
 document.addEventListener('click', (e) => {
+  if (e.target.closest('.newsvis')) { if (Speaker.state === 'stopped') startReading('today'); else togglePlay(); return; }
   const t = e.target.closest('button'); if (!t) return;
   if (t.closest('#tabbar')) { state.tab = t.dataset.tab; render(); window.scrollTo(0, 0); return; }
   if (t.id === 'budgetChip') { openBudgetSheet(); return; }
@@ -293,26 +459,39 @@ document.addEventListener('click', (e) => {
   if (t.dataset.fill) { $('#budgetInput').value = t.dataset.fill; return; }
   if (t.dataset.horizon) { state.horizon = t.dataset.horizon; lsSet(LS.horizon, state.horizon); render(); return; }
   if (t.dataset.date) { closeSheet(); loadDate(t.dataset.date); return; }
+  if (t.dataset.gender) { Speaker.setGender(t.dataset.gender); saveVoice(); render(); return; }
+  if (t.dataset.rate) { Speaker.setRate(Number(t.dataset.rate)); saveVoice(); render(); return; }
   switch (t.dataset.act) {
     case 'budget': openBudgetSheet(); break;
     case 'saveBudget': if (setBudget($('#budgetInput').value)) closeSheet(); break;
     case 'close': closeSheet(); break;
+    case 'mute': Speaker.setMuted(true); saveVoice(); render(); break;
+    case 'unmute': Speaker.setMuted(false); saveVoice(); render(); break;
     case 'latest': if (state.dates[0]) loadDate(state.dates[0]); break;
     case 'reload': init().then(() => toast('読み込み直しました')); break;
+    case 'testVoice': state.readingTab = null; Speaker.play([{ text: `こんにちは。${VOICES[Speaker.settings.gender].label}の声で、ニュースを読み上げます。` }]); break;
   }
 });
 $('#sheetBackdrop').addEventListener('click', closeSheet);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSheet();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('newsvis')) { e.preventDefault(); e.target.click(); }
   if (e.key === 'Enter' && e.target.id === 'budgetInput' && setBudget(e.target.value)) closeSheet();
 });
 
 async function init() {
   state.horizon = lsGet(LS.horizon, 'all');
+  Speaker.stop();
   state.offline = false;
   await loadLatest();
   render();
 }
+Speaker.init(lsGet(LS.voice, null));
+Speaker.onLine = (line, i, n) => showLine(line, i, n);
+Speaker.onState = () => syncPlayer();
+Peek.extraLine = () => (state.data && state.data.lesson ? state.data.lesson.title.replace(/^今日の用語：/, '今日の用語は') + 'だよ' : '');
+setupPlayer();
+Peek.init();
 init();
 
 if ('serviceWorker' in navigator) {
