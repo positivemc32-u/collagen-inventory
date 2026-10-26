@@ -108,6 +108,7 @@
 
   function placeLabel(b) {
     if (b.placeName) return b.placeName;
+    if (!isFinite(b.lat) || !isFinite(b.lon)) return '場所は未設定';
     const p = PLACES.find((x) => Math.abs(x[1] - b.lat) < 0.01 && Math.abs(x[2] - b.lon) < 0.01);
     return p ? p[0] : `北緯${b.lat}・東経${b.lon}`;
   }
