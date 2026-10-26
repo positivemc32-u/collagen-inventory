@@ -5,25 +5,11 @@
 
 const STORAGE_KEY = 'ryoshusho-v1';
 
-// 発行元（領収書の右下に出る情報）。「⚙️ 設定」で変更・追加できます。
-// 登録番号は「人（事業者）」ごとに1つなので、同じ人が出すならサロン名でも同じ番号を使えます。
+// 発行元（領収書の右下に出る情報）。名前・住所・電話番号・登録番号は個人情報なので
+// プログラムには書かず、各端末の「⚙️ 設定」で入れてもらいます（その端末の中にだけ保存）。
+// 登録番号は「人（事業者）」ごとに1つなので、同じ人が出すなら屋号が違っても同じ番号を使えます。
 const DEFAULT_ISSUERS = [
-  {
-    id: 'kurage',
-    name: 'シナリーくらげ営業所',
-    zip: '922-0134',
-    address: '石川県加賀市山中温泉荒谷町ヌ116',
-    tel: '080-5093-2579',
-    regNo: 'T5810440696021',
-  },
-  {
-    id: 'kagmian',
-    name: 'kagmian',
-    zip: '922-0134',
-    address: '石川県加賀市山中温泉荒谷町ヌ116',
-    tel: '080-5093-2579',
-    regNo: 'T5810440696021',
-  },
+  { id: 'main', name: '', zip: '', address: '', tel: '', regNo: '' },
 ];
 
 const TADASHI_CHOICES = ['お品代として', '商品代として', '施術代として', '体験料として'];
@@ -62,6 +48,17 @@ function loadDb() {
     console.warn('読み込み失敗', e);
     return defaultDb();
   }
+}
+
+// バックアップのファイルから読み込んだデータを、いまの形にそろえる
+function importBackup(text) {
+  const d = JSON.parse(text);
+  if (!d || d.app !== 'ryoshusho' || !d.db || !Array.isArray(d.db.receipts)) throw new Error('この領収書アプリのバックアップではありません');
+  const def = defaultDb();
+  const db = d.db;
+  db.settings = { ...def.settings, ...(db.settings || {}) };
+  if (!db.settings.issuers || !db.settings.issuers.length) db.settings.issuers = def.settings.issuers;
+  return db;
 }
 
 function saveDb(db) {

@@ -12,9 +12,10 @@ function defaultSettings() {
   return {
     members: [
       // rate：材料の単価の何％を返金するか　share：マイナスやプラスを等分する仲間か
-      { id: 'm_kura', name: '倉', rate: 50, share: true },
-      { id: 'm_shintani', name: '新谷由起美AD', rate: 80, share: true },
-      { id: 'm_tanaka', name: '田中博明AD', rate: 80, share: true },
+      // 名前は個人情報なので、プログラムには書かず「⚙️ 設定」で入れてもらう（その端末の中にだけ保存）
+      { id: 'm_1', name: 'わたし', rate: 50, share: true },
+      { id: 'm_2', name: 'メンバー2', rate: 80, share: true },
+      { id: 'm_3', name: 'メンバー3', rate: 80, share: true },
       { id: 'm_other', name: 'その他', rate: 80, share: false },
     ],
     materials: [
@@ -101,6 +102,7 @@ function loadDb() {
 function normalizeDb(d) {
   const base = emptyDb();
   if (!d || typeof d !== 'object') return base;
+  d = migrateLegacyIds(d);
   const s = Object.assign(base.settings, d.settings || {});
   s.parking = Object.assign(defaultSettings().parking, s.parking || {});
   // 前の版を使っていた人にも、あとから増えたメニューを足す
@@ -111,9 +113,9 @@ function normalizeDb(d) {
     }
     s.rev = 2;
   }
-  // 返金の割合（倉は50％、ほかは80％）を足す
+  // 返金の割合（1人目は50％、ほかは80％）を足す
   if (s.rev < 3) {
-    s.members.forEach((m) => { if (m.rate == null) m.rate = m.id === 'm_kura' ? 50 : 80; });
+    s.members.forEach((m) => { if (m.rate == null) m.rate = m.id === 'm_1' ? 50 : 80; });
     s.rev = 3;
   }
   // パルファンを1人10円に、パック3種を材料に、メニューに使う材料を足す
@@ -278,19 +280,38 @@ function refundUnit(price, rate) {
   return Math.round(price * rate / 100);
 }
 
-// 誰の物を使ったか
-//   kura   … 倉の物だけ
-//   split  … 倉が半分、残りの半分を新谷・田中で割る
+// 誰の物を使ったか（表示の名前は「⚙️ 設定」の人の名前から作る）
+//   main   … 1人目の物だけ
+//   split  … 1人目が半分、残りの半分を2人目・3人目で割る
 //   manual … 人ごとに回数を入力
 const MAT_MODES = [
-  { id: 'kura', label: '倉の物だけ', shares: { m_kura: 1 } },
-  { id: 'split', label: '倉・新谷・田中で分ける', shares: { m_kura: 0.5, m_shintani: 0.25, m_tanaka: 0.25 } },
+  { id: 'main', shares: { m_1: 1 } },
+  { id: 'split', shares: { m_1: 0.5, m_2: 0.25, m_3: 0.25 } },
   { id: 'manual', label: '人ごとに入力' },
 ];
+function modeLabel(mode, members) {
+  if (mode.label) return mode.label;
+  const name = (id) => (members.find((m) => m.id === id) || {}).name || '?';
+  const ids = Object.keys(mode.shares);
+  return ids.length === 1 ? `${name(ids[0])}の物だけ` : `${ids.map(name).join('・')}で分ける`;
+}
+
+// 前の版で使っていた人の ID（名前のローマ字）を、名前の入らない ID（m_1・m_2・m_3）に置きかえる。
+// 前の版の最初から入っていた3人は「m_英字」の ID で、この順番に並んでいる。
+// 「1人目の物だけ」の選び方の ID は、1人目の ID から「m_」を取ったものだった。
+function migrateLegacyIds(d) {
+  const ms = d.settings && Array.isArray(d.settings.members) ? d.settings.members : [];
+  const legacy = ms.map((m) => m.id).filter((id) => /^m_[a-z]+$/.test(id) && id !== 'm_other').slice(0, 3);
+  if (!legacy.length) return d;
+  let json = JSON.stringify(d);
+  legacy.forEach((old, i) => { json = json.split(`"${old}"`).join(`"m_${i + 1}"`); });
+  json = json.split(`"mode":"${legacy[0].slice(2)}"`).join('"mode":"main"');
+  return JSON.parse(json);
+}
 
 // count が null のときは参加者のメニューから自動で数える（手で直すと数字が入る）
 function matUseOf(ev, matId) {
-  if (!ev.matUse[matId]) ev.matUse[matId] = { count: null, mode: 'kura' };
+  if (!ev.matUse[matId]) ev.matUse[matId] = { count: null, mode: 'main' };
   return ev.matUse[matId];
 }
 
