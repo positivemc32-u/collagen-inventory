@@ -6,6 +6,8 @@
 > 🧾 **体験会の精算アプリ** も同じ場所にあります → `taikenkai/` フォルダ（URL の最後に `/taikenkai/` を付けて開きます）。詳しくは [taikenkai/README.md](taikenkai/README.md)
 >
 > 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
+>
+> 🧾 **経費レシートアプリ（弥生用）** も同じ場所にあります → `keihi/` フォルダ（URL の最後に `/keihi/` を付けて開きます）。レシートを撮影して、やよいの青色申告用の CSV と Excel にします。詳しくは [keihi/README.md](keihi/README.md)
 
 ---
 
