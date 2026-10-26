@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f7d6d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="読み上げ">
+  <meta name="robots" content="noindex, nofollow">
+  <title>読み上げ・文字起こし</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="pageTitle">文字を読み上げる</h1>
+  </header>
+
+  <main>
+    <!-- ===== 読み上げ ===== -->
+    <section class="page" id="page-tts">
+      <div class="card">
+        <div class="row-between">
+          <h2>読み上げる文章</h2>
+          <small id="charCount">0文字</small>
+        </div>
+        <textarea id="ttsText" rows="9" placeholder="ここに文章を入力・貼り付けしてください（長さの制限はありません）"></textarea>
+        <div id="readView" class="read-view" hidden></div>
+        <div class="btn-row small-btns">
+          <button type="button" id="btnPaste">📋 貼り付け</button>
+          <label class="file-btn">📄 ファイル<input type="file" id="fileInput" accept=".txt,text/plain" hidden></label>
+          <button type="button" id="btnClearTts">🗑 消す</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>声を選ぶ</h2>
+        <div id="voiceGroups"></div>
+        <p class="hint" id="voiceNote"></p>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h2>速さ</h2>
+          <strong id="rateLabel">1.0倍</strong>
+        </div>
+        <input type="range" id="rate" min="0.5" max="3" step="0.1" value="1">
+        <div class="btn-row small-btns">
+          <button type="button" data-rate="0.7">🐢 ゆっくり</button>
+          <button type="button" data-rate="1">ふつう</button>
+          <button type="button" data-rate="1.5">🐇 はやい</button>
+          <button type="button" data-rate="2">⚡ とても速い</button>
+        </div>
+      </div>
+
+      <div class="player">
+        <div class="progress"><div class="bar" id="progressBar"></div></div>
+        <div class="player-btns">
+          <button type="button" id="btnPrev" title="前の文">⏮</button>
+          <button type="button" id="btnPlay" class="primary big">▶ 読み上げ</button>
+          <button type="button" id="btnStop" title="止める">⏹</button>
+          <button type="button" id="btnNext" title="次の文">⏭</button>
+        </div>
+        <small id="progressText"></small>
+      </div>
+    </section>
+
+    <!-- ===== 文字起こし ===== -->
+    <section class="page" id="page-stt" hidden>
+      <div class="card">
+        <div id="sttUnsupported" class="warn" hidden>
+          このブラウザは音声の文字起こしに対応していません。<br>
+          パソコンは <b>Chrome</b> か <b>Edge</b>、iPhone は <b>Safari</b>、Android は <b>Chrome</b> で開いてください。
+        </div>
+        <button type="button" id="btnMic" class="mic">🎤<span id="micLabel">話しはじめる</span></button>
+        <p class="hint center" id="micStatus">ボタンを押してから話してください。もう一度押すと止まります。</p>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h2>文字になった内容</h2>
+          <small id="sttCount">0文字</small>
+        </div>
+        <textarea id="sttText" rows="10" placeholder="ここに話した言葉が文字で出ます（あとから直せます）"></textarea>
+        <div class="interim" id="sttInterim"></div>
+        <label class="check"><input type="checkbox" id="optPeriod" checked> 話の区切りに「。」を付ける</label>
+        <div class="btn-row small-btns">
+          <button type="button" id="btnCopy">📋 コピー</button>
+          <button type="button" id="btnToTts">🔊 読み上げへ送る</button>
+          <button type="button" id="btnSaveTxt">💾 保存</button>
+          <button type="button" id="btnClearStt">🗑 消す</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 設定 ===== -->
+    <section class="page" id="page-settings" hidden>
+      <div class="card">
+        <h2>📖 読み方辞書</h2>
+        <p class="hint">漢字の読み方は、文全体の流れから自動で決めています。それでも違う読み方をされる言葉は、ここで正しい読み方（ひらがな）を登録してください。読み上げのときだけ置きかわり、画面の文章は変わりません。</p>
+        <div class="dict-form">
+          <input type="text" id="dictFrom" placeholder="言葉（例：牧野）">
+          <input type="text" id="dictTo" placeholder="読み方（例：まきの）">
+          <button type="button" id="btnDictAdd" class="primary">追加</button>
+        </div>
+        <ul class="dict-list" id="dictList"></ul>
+      </div>
+
+      <div class="card">
+        <h2>🎚 声の細かい調整</h2>
+        <p class="hint">9種類の声それぞれに、もとにする端末の声と高さを変えられます。「自動」がおすすめです。</p>
+        <div id="voiceTuning"></div>
+        <button type="button" id="btnResetTuning">元に戻す</button>
+      </div>
+
+      <div class="card">
+        <h2>ℹ️ この端末で使える日本語の声</h2>
+        <ul class="voice-list" id="deviceVoices"></ul>
+        <p class="hint">声の種類や自然さは、端末・ブラウザに入っている音声によって変わります。パソコンの <b>Edge</b> の「Microsoft Nanami / Keita（Natural）」や、<b>Chrome</b> の「Google 日本語」は特に自然です。</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button type="button" data-tab="tts" class="active"><span class="ico">🔊</span><span>読み上げ</span></button>
+    <button type="button" data-tab="stt"><span class="ico">🎤</span><span>文字起こし</span></button>
+    <button type="button" data-tab="settings"><span class="ico">⚙️</span><span>設定</span></button>
+  </nav>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

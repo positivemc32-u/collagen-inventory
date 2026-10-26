@@ -8,6 +8,8 @@
 > 🧾 **領収書アプリ** も同じ場所にあります → `ryoshusho/` フォルダ（URL の最後に `/ryoshusho/` を付けて開きます）。詳しくは [ryoshusho/README.md](ryoshusho/README.md)
 >
 > 🧾 **経費レシートアプリ（弥生用）** も同じ場所にあります → `keihi/` フォルダ（URL の最後に `/keihi/` を付けて開きます）。レシートを撮影して、やよいの青色申告用の CSV と Excel にします。詳しくは [keihi/README.md](keihi/README.md)
+>
+> 🔊 **読み上げ・文字起こしアプリ** も同じ場所にあります → `yomiage/` フォルダ（URL の最後に `/yomiage/` を付けて開きます）。詳しくは [yomiage/README.md](yomiage/README.md)
 
 ---
 
@@ -57,7 +59,7 @@ GitHub のリポジトリ画面で「Pull requests」→ 該当のプルリク�
 4. 「Build and deployment」の **Source** を **「Deploy from a branch」** にする
 5. **Branch** を **`main`**、フォルダを **`/ (root)`** にして **Save** を押す
 6. 1〜3分待ってページを再読み込みすると、上の方に
-   `Your site is live at https://（ユーザー名）.github.io/collagen-inventory/`
+   `Your site is live at https://positivemc32-u.github.io/collagen-inventory/`
    と表示されます。これがアプリのURLです。
 
 > 💡 **リポジトリが Private（非公開）の場合**：GitHub の無料プランでは、Private リポジトリで GitHub Pages は使えません。

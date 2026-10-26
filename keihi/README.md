@@ -3,7 +3,7 @@
 iPhone で撮ったレシートを読み取って、**やよいの青色申告に取り込める CSV** と **Excel ファイル** にするアプリです。
 iPhone・Android・パソコンのどれでも、ブラウザで開くだけで使えます。
 
-- URL：`https://（ユーザー名）.github.io/collagen-inventory/keihi/`
+- URL：<https://positivemc32-u.github.io/collagen-inventory/keihi/>
   （コラーゲン管理アプリと同じ GitHub Pages の中にあります。main に取り込めば自動で公開されます）
 - 携帯ではホーム画面に追加すると、アプリのように使えます（iPhone は Safari の共有ボタン →「ホーム画面に追加」）
 
