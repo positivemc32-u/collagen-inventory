@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2a3f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="クラゲNews">
+  <meta name="robots" content="noindex, nofollow">
+  <title>クラゲのニューストピック</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-kurage" aria-hidden="true"></span>
+      <div>
+        <h1>クラゲのニューストピック</h1>
+        <p id="todayLabel" class="today-label"></p>
+      </div>
+    </div>
+    <button type="button" id="btnSettings" class="icon-btn" aria-label="設定">⚙️</button>
+  </header>
+
+  <!-- 読み上げバー（いつも画面の下に出ています） -->
+  <div class="player" id="player">
+    <button type="button" id="btnPlay" class="play-btn" aria-label="読み上げる">▶</button>
+    <button type="button" id="btnStop" class="pbtn" aria-label="止める">■</button>
+    <button type="button" id="btnPrev" class="pbtn" aria-label="前のニュース">⏮</button>
+    <button type="button" id="btnNext" class="pbtn" aria-label="次のニュース">⏭</button>
+    <button type="button" id="btnMute" class="pbtn" aria-label="ミュート">🔊</button>
+    <div class="player-mid">
+      <div id="nowReading" class="now-reading">▶ を押すと、上から順に読み上げます</div>
+      <div class="player-opts">
+        <select id="voiceSel" aria-label="声">
+          <option value="male">🎙 落ち着いた男性</option>
+          <option value="female">🎙 落ち着いた女性</option>
+        </select>
+        <label class="rate">速さ <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1"> <b id="rateLabel">1.0</b>倍</label>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div id="staleNote" class="stale" hidden></div>
+
+    <!-- 目次（インデックス）：ドラッグで並べ替え -->
+    <nav class="index-card" aria-label="目次">
+      <div class="row-between">
+        <h2>📑 目次 <small>（≡ をつまんで上下にドラッグすると順番を変えられます）</small></h2>
+        <button type="button" id="btnAddSection" class="small">＋ 項目を足す</button>
+      </div>
+      <ol id="indexList" class="index-list"></ol>
+    </nav>
+
+    <div id="sections"></div>
+    <p class="foot">ニュースは調べた時点の内容です。くわしくは各記事の出典でご確認ください。占いは楽しみとしてどうぞ🪼</p>
+  </main>
+
+  <!-- 画面の端にときどき出てくるクラゲ -->
+  <div id="edgeKurage" class="edge-kurage" aria-hidden="true"></div>
+
+  <!-- 項目を足す -->
+  <dialog id="dlgAdd">
+    <form method="dialog" class="dlg">
+      <h2>＋ 項目を足す</h2>
+      <label>項目の名前<input id="addTitle" required maxlength="30" placeholder="例：ペットのニュース"></label>
+      <label>絵文字（1文字）<input id="addEmoji" maxlength="4" placeholder="🐶"></label>
+      <label>どんなニュースを集めたいか（Claudeで更新するときに使います）
+        <textarea id="addPrompt" rows="3" placeholder="例：犬や猫など、ペットに関する今日の話題やニュース"></textarea>
+      </label>
+      <p class="hint">足した項目には、自分でメモやニュースを書き込むこともできます。</p>
+      <div class="btn-row">
+        <button value="cancel" formnovalidate>やめる</button>
+        <button value="ok" class="primary">足す</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 自分でニュース・メモを書く -->
+  <dialog id="dlgItem">
+    <form method="dialog" class="dlg">
+      <h2 id="dlgItemTitle">✏️ ニュース・メモを書く</h2>
+      <label>テロップ（画像に出る短い文字）<input id="itemTelop" maxlength="20" placeholder="例：秋の新作ハーブティー"></label>
+      <label>見出し<input id="itemTitle" required maxlength="80"></label>
+      <label>ひとことで<textarea id="itemSummary" rows="3"></textarea></label>
+      <label>解説<textarea id="itemDetail" rows="3"></textarea></label>
+      <label>話すときのネタ<textarea id="itemTalk" rows="2"></textarea></label>
+      <label>出典のURL（あれば）<input id="itemUrl" type="url" placeholder="https://"></label>
+      <div class="btn-row">
+        <button value="cancel" formnovalidate>やめる</button>
+        <button value="ok" class="primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 設定 -->
+  <dialog id="dlgSettings">
+    <form method="dialog" class="dlg wide">
+      <h2>⚙️ 設定</h2>
+
+      <fieldset>
+        <legend>🔮 占いに使う生年月日・時間・場所</legend>
+        <div class="grid2">
+          <label>生年月日<input type="date" id="bDate" required></label>
+          <label>生まれた時間<input type="time" id="bTime"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="bTimeUnknown"> 時間はわからない</label>
+        <label>生まれた場所
+          <select id="bPlace"></select>
+        </label>
+        <div class="grid2" id="customPlace" hidden>
+          <label>緯度（北緯）<input type="number" step="0.001" id="bLat"></label>
+          <label>経度（東経）<input type="number" step="0.001" id="bLon"></label>
+          <label>場所の名前<input id="bPlaceName" placeholder="例：パリ"></label>
+          <label>時差（日本は 9）<input type="number" step="0.5" id="bTz" value="9"></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>🤖 Claudeで今日のニュースに更新（任意）</legend>
+        <p class="hint">Anthropic の APIキーを入れると、ボタン1つでその日のニュースをClaudeがインターネットで調べて入れ替えます（APIの利用料がかかります）。キーはこの端末の中だけに保存され、Anthropic 以外には送りません。</p>
+        <label>APIキー<input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-..."></label>
+        <div class="btn-row">
+          <button type="button" id="btnUpdateAll" class="primary">🤖 全部の項目を今日のニュースに更新</button>
+        </div>
+        <p id="aiStatus" class="hint"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>🗂 項目の表示</legend>
+        <div id="sectionToggles"></div>
+        <button type="button" id="btnResetOrder" class="small">順番を最初に戻す</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>🪼 クラゲ</legend>
+        <label class="check"><input type="checkbox" id="optEdge" checked> 画面の端にときどきクラゲを出す</label>
+        <label class="check"><input type="checkbox" id="optReadTalk" checked> 読み上げで「話すときのネタ」も読む</label>
+      </fieldset>
+
+      <div class="btn-row">
+        <button value="close" class="primary">閉じる</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="astro.js"></script>
+  <script src="news.js"></script>
+  <script src="fortune.js"></script>
+  <script src="app.js"></script>
+  <script type="module" src="ai.js"></script>
+</body>
+</html>
