@@ -193,6 +193,7 @@ function commit() {
 }
 
 function checkReady() {
+  if (!issuerReady(issuerOf(state.draft))) { toast('⚙️ 設定で発行元の名前を入れてください'); return false; }
   if (calcReceipt(state.draft).total <= 0) { toast('明細の金額を入れてください'); return false; }
   return true;
 }
@@ -321,8 +322,14 @@ function exportCsv() {
 
 // ---------- バックアップ ----------
 // 14日以上バックアップしていないと、画面の上にお知らせを出す
+function issuerReady(x) { return !!(x && x.name && x.name.trim()); }
+
 function renderNotices() {
   const box = $('#notices');
+  if (state.tab !== 'settings' && !issuers().some(issuerReady)) {
+    box.innerHTML = '<div class="notice">🧾 はじめに、領収書に出す発行元（名前・住所・電話・登録番号）を入れてください。<button type="button" class="link" data-go="settings">⚙️ 設定へ</button></div>';
+    return;
+  }
   const since = db.lastBackup || (db.receipts[0] && db.receipts[0].createdAt);
   const days = since ? (Date.now() - new Date(since).getTime()) / 86400000 : 0;
   box.innerHTML = db.receipts.length && (!db.lastBackup || days > 14) && state.tab !== 'backup'
@@ -447,6 +454,7 @@ function renderSettings() {
     <section class="panel">
       <h2>発行元</h2>
       <span class="hint">領収書の右下に出る情報です。登録番号は人（事業者）ごとに1つなので、同じ人が出すならどの屋号でも同じ番号を使えます。</span>
+      <span class="hint">🔒 ここに入れた情報は、この端末のブラウザの中だけに保存されます（GitHub やインターネットには載りません）。機種変更のときは「💾 バックアップ」で移せます。</span>
       ${issuers().map((x, i) => `
         <div class="issuer" data-iss="${i}">
           <div class="field"><label>名前（屋号）</label><input type="text" data-is="name" value="${esc(x.name)}"></div>
