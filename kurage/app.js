@@ -640,8 +640,8 @@ function openSettings(focusBirth = false) {
   const b = state.birth;
   $('bDate').value = b.date;
   $('bTime').value = b.time || '';
-  $('bTimeUnknown').checked = !b.time;
-  $('bTime').disabled = !b.time;
+  $('bTimeUnknown').checked = !!b.date && !b.time;
+  $('bTime').disabled = $('bTimeUnknown').checked;
   const sel = $('bPlace');
   if (!sel.options.length) {
     sel.add(new Option('（生まれた場所を選ぶ）', ''));
