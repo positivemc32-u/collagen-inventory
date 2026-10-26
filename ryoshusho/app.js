@@ -20,7 +20,7 @@ function esc(s) {
 }
 function persist() { saveDb(db); }
 function issuers() { return db.settings.issuers; }
-function issuerOf(r) { return issuers().find((x) => x.id === r.issuerId) || issuers()[0]; }
+function issuerOf(r) { return issuerInfo(db.settings, r.issuerId); }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function uniq(arr) { return [...new Set(arr.map((x) => (x || '').trim()).filter(Boolean))]; }
 function customerOf(r) { return (r.customer || '').trim() || (r.recipient || '').trim(); }
@@ -56,12 +56,12 @@ function renderCreate() {
       <button type="button" class="link" data-act="new">新しく作る</button></div>` : ''}
 
     <section class="panel">
-      ${issuers().length > 1 ? `
-        <div class="field"><label>発行元</label>
-          <div class="seg">${issuers().map((x) => `
-            <label><input type="radio" name="issuer" value="${esc(x.id)}" ${x.id === d.issuerId ? 'checked' : ''}><span>${esc(x.name)}</span></label>`).join('')}
-          </div>
-        </div>` : ''}
+      <div class="field"><label>屋号</label>
+        <select id="issuerSel">
+          ${issuers().map((x) => `<option value="${esc(x.id)}" ${x.id === issuerOf(d).id ? 'selected' : ''}>${esc(x.name || '（名前を入れてください）')}</option>`).join('')}
+          <option value="__add">＋ 屋号を追加…</option>
+        </select>
+      </div>
       <div class="row2">
         <div class="field"><label>発行日</label><input type="date" data-f="date" value="${esc(d.date)}"></div>
         <div class="field"><label>宛名 <small>空欄なら手書き用の線だけ</small></label>
@@ -327,7 +327,7 @@ function issuerReady(x) { return !!(x && x.name && x.name.trim()); }
 function renderNotices() {
   const box = $('#notices');
   if (state.tab !== 'settings' && !issuers().some(issuerReady)) {
-    box.innerHTML = '<div class="notice">🧾 はじめに、領収書に出す発行元（名前・住所・電話・登録番号）を入れてください。<button type="button" class="link" data-go="settings">⚙️ 設定へ</button></div>';
+    box.innerHTML = '<div class="notice">🧾 はじめに、領収書に出す屋号と、住所・電話番号・登録番号を入れてください（この端末の中にだけ保存されます）。<button type="button" class="link" data-go="settings">⚙️ 設定へ</button></div>';
     return;
   }
   const since = db.lastBackup || (db.receipts[0] && db.receipts[0].createdAt);
@@ -452,21 +452,36 @@ function restoreUndo() {
 function renderSettings() {
   main.innerHTML = `
     <section class="panel">
-      <h2>発行元</h2>
-      <span class="hint">領収書の右下に出る情報です。登録番号は人（事業者）ごとに1つなので、同じ人が出すならどの屋号でも同じ番号を使えます。</span>
+      <h2>屋号</h2>
+      <span class="hint">ここに入れた屋号が、作成画面のプルダウンに出ます。いくつでも足せます。</span>
       <span class="hint">🔒 ここに入れた情報は、この端末のブラウザの中だけに保存されます（GitHub やインターネットには載りません）。機種変更のときは「💾 バックアップ」で移せます。</span>
       ${issuers().map((x, i) => `
         <div class="issuer" data-iss="${i}">
-          <div class="field"><label>名前（屋号）</label><input type="text" data-is="name" value="${esc(x.name)}"></div>
-          <div class="row2">
-            <div class="field"><label>郵便番号</label><input type="text" inputmode="numeric" data-is="zip" value="${esc(x.zip)}"></div>
-            <div class="field"><label>電話番号</label><input type="tel" data-is="tel" value="${esc(x.tel)}"></div>
+          <div class="issuer-top">
+            <input type="text" data-is="name" value="${esc(x.name)}" placeholder="屋号（例：〇〇営業所）">
+            ${issuers().length > 1 ? `<button type="button" class="icon-btn" data-deliss="${i}" aria-label="この屋号を消す">✕</button>` : ''}
           </div>
-          <div class="field"><label>住所</label><input type="text" data-is="address" value="${esc(x.address)}"></div>
-          <div class="field"><label>登録番号（インボイス）</label><input type="text" data-is="regNo" value="${esc(x.regNo)}" placeholder="T から始まる13桁"></div>
-          ${issuers().length > 1 ? `<button type="button" class="btn small danger" data-deliss="${i}">この発行元を消す</button>` : ''}
+          <details ${BUSINESS_FIELDS.some((k) => x[k]) ? 'open' : ''}>
+            <summary>この屋号だけ住所・電話番号を変える</summary>
+            <span class="hint">空欄なら下の共通の情報を使います。</span>
+            <div class="row2">
+              <div class="field"><label>郵便番号</label><input type="text" inputmode="numeric" data-is="zip" value="${esc(x.zip)}" placeholder="${esc(db.settings.business.zip)}"></div>
+              <div class="field"><label>電話番号</label><input type="tel" data-is="tel" value="${esc(x.tel)}" placeholder="${esc(db.settings.business.tel)}"></div>
+            </div>
+            <div class="field"><label>住所</label><input type="text" data-is="address" value="${esc(x.address)}" placeholder="${esc(db.settings.business.address)}"></div>
+          </details>
         </div>`).join('')}
-      <button type="button" class="btn small" data-act="addIssuer">＋ 発行元を足す</button>
+      <button type="button" class="btn small" data-act="addIssuer">＋ 屋号を追加</button>
+    </section>
+    <section class="panel">
+      <h2>住所・電話番号・登録番号 <small>全部の屋号で共通</small></h2>
+      <span class="hint">領収書の右下に出ます。登録番号は人（事業者）ごとに1つなので、同じ人が出すならどの屋号でも同じ番号です。</span>
+      <div class="row2">
+        <div class="field"><label>郵便番号</label><input type="text" inputmode="numeric" data-bz="zip" value="${esc(db.settings.business.zip)}"></div>
+        <div class="field"><label>電話番号</label><input type="tel" data-bz="tel" value="${esc(db.settings.business.tel)}"></div>
+      </div>
+      <div class="field"><label>住所</label><input type="text" data-bz="address" value="${esc(db.settings.business.address)}"></div>
+      <div class="field"><label>登録番号（インボイス）</label><input type="text" data-bz="regNo" value="${esc(db.settings.business.regNo)}" placeholder="T から始まる13桁"></div>
     </section>
     <section class="panel">
       <h2>番号</h2>
@@ -505,6 +520,11 @@ main.addEventListener('input', (e) => {
     persist();
     return;
   }
+  if (t.dataset.bz) {
+    db.settings.business[t.dataset.bz] = t.value.trim();
+    persist();
+    return;
+  }
   if (t.id === 'nextNo') {
     const n = parseInt(t.value, 10);
     if (n >= 1) { db.settings.nextNo = n; persist(); }
@@ -513,7 +533,22 @@ main.addEventListener('input', (e) => {
 
 main.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.name === 'issuer') { state.draft.issuerId = t.value; updatePreview(); }
+  if (t.id === 'issuerSel') {
+    if (t.value === '__add') {
+      const name = (prompt('追加する屋号を入れてください') || '').trim();
+      if (name) {
+        const x = { id: uid(), name, zip: '', address: '', tel: '' };
+        issuers().push(x);
+        state.draft.issuerId = x.id;
+        persist();
+        toast('「' + name + '」を追加しました');
+      }
+      renderCreate();
+    } else {
+      state.draft.issuerId = t.value;
+      updatePreview();
+    }
+  }
   if (t.name === 'payment') { state.draft.payment = t.value; updatePreview(); }
   if (t.name === 'format') { state.format = t.value; updatePreview(); }
 });
@@ -550,7 +585,9 @@ main.addEventListener('click', (e) => {
   }
   if (b.dataset.deliss != null) {
     const i = Number(b.dataset.deliss);
-    if (!confirm('「' + issuers()[i].name + '」を消しますか？')) return;
+    const used = db.receipts.filter((r) => issuerOf(r).id === issuers()[i].id).length;
+    if (used) { alert('この屋号で発行した領収書が履歴に' + used + '枚あるので消せません。名前を直すことはできます。'); return; }
+    if (!confirm('「' + (issuers()[i].name || '名前なし') + '」を消しますか？')) return;
     issuers().splice(i, 1);
     if (!issuers().some((x) => x.id === db.settings.issuerId)) db.settings.issuerId = issuers()[0].id;
     persist();
@@ -572,9 +609,10 @@ main.addEventListener('click', (e) => {
     case 'backup-share': backupShare(); break;
     case 'restore-undo': restoreUndo(); break;
     case 'addIssuer':
-      issuers().push({ ...issuers()[0], id: uid(), name: '' });
+      issuers().push({ id: uid(), name: '', zip: '', address: '', tel: '' });
       persist();
       render();
+      [...document.querySelectorAll('[data-is="name"]')].pop().focus();
       break;
   }
 });

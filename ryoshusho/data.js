@@ -5,13 +5,15 @@
 
 const STORAGE_KEY = 'ryoshusho-v1';
 
-// 発行元（領収書の右下に出る情報）。最初は空欄で、「⚙️ 設定」で入れます。
-// ⚠️ 名前・住所・電話・登録番号などの個人情報は、このファイルに書かないでください。
-//    このファイルは GitHub で公開されています。入れた情報はこの端末のブラウザの中だけに保存されます。
-// 登録番号は「人（事業者）」ごとに1つなので、同じ人が出すならサロン名でも同じ番号を使えます。
+// 発行元（領収書の右下に出る情報）。名前・住所・電話番号・登録番号は個人情報なので
+// プログラムには書かず、各端末の「⚙️ 設定」で入れてもらいます（その端末の中にだけ保存）。
+// 住所・電話番号・登録番号は全部の屋号で共通（business）。屋号はいくつでも登録でき、作成画面のプルダウンで選びます。
+// 登録番号は「人（事業者）」ごとに1つなので、同じ人が出すなら屋号が違っても同じ番号を使えます。
+// ⚠️ 名前・住所・電話・登録番号などの個人情報は、このファイルに書かないでください（GitHub で公開されています）。
 const DEFAULT_ISSUERS = [
-  { id: 'main', name: '', zip: '', address: '', tel: '', regNo: '' },
+  { id: 'main', name: '', zip: '', address: '', tel: '' }, // zip・address・tel は空なら共通の情報を使う
 ];
+const BUSINESS_FIELDS = ['zip', 'address', 'tel'];
 
 const TADASHI_CHOICES = ['お品代として', '商品代として', '施術代として', '体験料として'];
 const PAYMENT_CHOICES = ['現金', '振込', 'カード', 'PayPay', ''];
@@ -27,6 +29,7 @@ function todayStr() {
 function defaultDb() {
   return {
     settings: {
+      business: { zip: '', address: '', tel: '', regNo: '' },
       issuers: DEFAULT_ISSUERS.map((x) => ({ ...x })),
       issuerId: DEFAULT_ISSUERS[0].id,
       nextNo: 1,
@@ -41,14 +44,7 @@ function loadDb() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultDb();
-    const db = JSON.parse(raw);
-    const def = defaultDb();
-    db.settings = { ...def.settings, ...(db.settings || {}) };
-    if (!db.settings.issuers || !db.settings.issuers.length) db.settings.issuers = def.settings.issuers;
-    db.receipts = db.receipts || [];
-    db.backupLog = db.backupLog || [];
-    if (db.lastBackup === undefined) db.lastBackup = null;
-    return db;
+    return normalizeDb(JSON.parse(raw));
   } catch (e) {
     console.warn('読み込み失敗', e);
     return defaultDb();
@@ -72,13 +68,13 @@ function importJson(text) {
   if (!d || !(d.kind === BACKUP_KIND || d.app === 'ryoshusho') || !d.db) throw new Error('領収書アプリのバックアップではありません');
   const src = d.db;
   if (!Array.isArray(src.receipts)) throw new Error('領収書のデータが見つかりません');
-  const def = defaultDb();
-  const settings = { ...def.settings, ...(src.settings || {}) };
-  if (!Array.isArray(settings.issuers) || !settings.issuers.length) settings.issuers = def.settings.issuers;
   const receipts = src.receipts.filter((r) => r && r.id && Array.isArray(r.items));
+  const db = normalizeDb({ settings: src.settings, receipts });
+  db.backupLog = [];
+  db.lastBackup = null;
   const maxNo = receipts.reduce((m, r) => Math.max(m, Number(r.no) || 0), 0);
-  if (!(settings.nextNo > maxNo)) settings.nextNo = maxNo + 1;
-  return { db: { ...def, settings, receipts }, exportedAt: d.exportedAt || d.savedAt || null };
+  if (!(db.settings.nextNo > maxNo)) db.settings.nextNo = maxNo + 1;
+  return { db, exportedAt: d.exportedAt || d.savedAt || null };
 }
 
 function receiptsTotal(list) { return list.reduce((sum, r) => sum + calcReceipt(r).total, 0); }
@@ -86,6 +82,34 @@ function receiptsTotal(list) { return list.reduce((sum, r) => sum + calcReceipt(
 function addBackupLog(db, entry) {
   db.backupLog.unshift({ at: new Date().toISOString(), count: db.receipts.length, total: receiptsTotal(db.receipts), ...entry });
   db.backupLog = db.backupLog.slice(0, 50);
+}
+
+// 古い形（屋号ごとに住所・登録番号を持っていた）のデータも、いまの形にそろえる
+function normalizeDb(db) {
+  const def = defaultDb();
+  const hadBusiness = !!(db.settings && db.settings.business);
+  db.settings = { ...def.settings, ...(db.settings || {}) };
+  const st = db.settings;
+  if (!st.issuers || !st.issuers.length) st.issuers = def.settings.issuers;
+  if (!hadBusiness) {
+    const first = st.issuers[0];
+    st.business = { zip: first.zip || '', address: first.address || '', tel: first.tel || '', regNo: first.regNo || '' };
+  }
+  st.issuers.forEach((x) => {
+    BUSINESS_FIELDS.forEach((k) => { if (!x[k] || x[k] === st.business[k]) x[k] = ''; });
+    delete x.regNo;
+  });
+  db.receipts = db.receipts || [];
+  db.backupLog = db.backupLog || [];
+  if (db.lastBackup === undefined) db.lastBackup = null;
+  return db;
+}
+
+// 領収書に出す発行元の情報（屋号ごとの住所・電話番号がなければ共通のものを使う）
+function issuerInfo(settings, id) {
+  const x = settings.issuers.find((i) => i.id === id) || settings.issuers[0];
+  const b = settings.business;
+  return { id: x.id, name: x.name, zip: x.zip || b.zip, address: x.address || b.address, tel: x.tel || b.tel, regNo: b.regNo };
 }
 
 function saveDb(db) {
