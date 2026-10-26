@@ -11,7 +11,7 @@ const synth = window.speechSynthesis;
 
 // ---------- 保存しておく設定 ----------
 const settings = Object.assign(
-  { presetId: 'f1', rate: 1, dict: [], tuning: {}, period: true, lisp: true },
+  { presetId: 'f2', rate: 1, dict: [], tuning: {}, period: true, lisp: true, dialect: 'standard' },
   loadSettings()
 );
 function loadSettings() {
@@ -30,22 +30,31 @@ function toast(msg) {
 }
 
 // =============================================================
-// 声（男性・女性・アニメの子ども役 各3種類）
+// 声の種類
 // 端末に入っている日本語の声をもとに、声の高さと話す速さを変えて作ります。
+// 高さを大きく変えるほど機械っぽく聞こえるので、大人の声は控えめにしています。
 // =============================================================
-const PRESETS = [
-  { id: 'm1', group: '男性', name: '男性1', desc: '落ち着いた声', gender: 'male', slot: 0, pitch: 0.9, rate: 1.0, fbPitch: 0.6 },
-  { id: 'm2', group: '男性', name: '男性2', desc: '低く渋い声', gender: 'male', slot: 1, pitch: 0.7, rate: 0.95, fbPitch: 0.45 },
-  { id: 'm3', group: '男性', name: '男性3', desc: '若く明るい声', gender: 'male', slot: 2, pitch: 1.05, rate: 1.05, fbPitch: 0.75 },
-  { id: 'f1', group: '女性', name: '女性1', desc: 'ふつうの声', gender: 'female', slot: 0, pitch: 1.0, rate: 1.0 },
-  { id: 'f2', group: '女性', name: '女性2', desc: '明るく高い声', gender: 'female', slot: 1, pitch: 1.2, rate: 1.05 },
-  { id: 'f3', group: '女性', name: '女性3', desc: '落ち着いた声', gender: 'female', slot: 2, pitch: 0.88, rate: 0.95 },
-  // アニメで女性の声優さんが演じる、舌足らずな子ども役のイメージ（高い声＋「です→でしゅ」の話し方）
-  { id: 'a1', group: 'アニメの子ども役（舌足らず）', name: 'アニメ1', desc: '甘えんぼ', gender: 'anime', slot: 0, pitch: 1.75, rate: 0.9 },
-  { id: 'a2', group: 'アニメの子ども役（舌足らず）', name: 'アニメ2', desc: '元気いっぱい', gender: 'anime', slot: 1, pitch: 1.6, rate: 1.05 },
-  { id: 'a3', group: 'アニメの子ども役（舌足らず）', name: 'アニメ3', desc: 'おっとり', gender: 'anime', slot: 2, pitch: 1.5, rate: 0.85 },
+const GROUPS = [
+  { key: 'male', icon: '👨', title: '男性（大人）' },
+  { key: 'female', icon: '👩', title: '女性（大人）' },
+  { key: 'anime', icon: '👧', title: 'アニメの子ども役', note: '高い声で、舌足らずに話します（です→でしゅ）' },
+  { key: 'obachan', icon: '👵', title: '大阪のおばちゃん', note: 'いつも関西弁で、ちょっと早口に話します' },
 ];
-const presetById = (id) => PRESETS.find((p) => p.id === id) || PRESETS[3];
+const PRESETS = [
+  { id: 'm1', gender: 'male', name: '低め', desc: '低くて渋い', slot: 0, pitch: 0.82, rate: 0.95, fbPitch: 0.55 },
+  { id: 'm2', gender: 'male', name: 'ふつう', desc: '落ち着いた', slot: 1, pitch: 0.95, rate: 1.0, fbPitch: 0.62 },
+  { id: 'm3', gender: 'male', name: '若め', desc: 'さわやか', slot: 2, pitch: 1.08, rate: 1.05, fbPitch: 0.7 },
+  { id: 'f1', gender: 'female', name: '低め', desc: '落ち着いた', slot: 0, pitch: 0.9, rate: 0.95 },
+  { id: 'f2', gender: 'female', name: 'ふつう', desc: 'やさしい', slot: 1, pitch: 1.0, rate: 1.0 },
+  { id: 'f3', gender: 'female', name: '若め', desc: '明るい', slot: 2, pitch: 1.15, rate: 1.05 },
+  { id: 'a1', gender: 'anime', name: '甘えんぼ', desc: 'いちばん高い', slot: 0, pitch: 1.75, rate: 0.9 },
+  { id: 'a2', gender: 'anime', name: '元気', desc: '高め・速め', slot: 1, pitch: 1.6, rate: 1.05 },
+  { id: 'a3', gender: 'anime', name: 'おっとり', desc: '高め・ゆっくり', slot: 2, pitch: 1.5, rate: 0.85 },
+  { id: 'o1', gender: 'obachan', name: '大阪のおばちゃん', desc: '関西弁・早口', slot: 0, pitch: 0.88, rate: 1.15, dialect: 'kansai' },
+];
+const groupOf = (p) => GROUPS.find((g) => g.key === p.gender);
+const fullName = (p) => (p.gender === 'obachan' ? p.name : `${groupOf(p).title.replace(/（.*）/, '')}・${p.name}`);
+const presetById = (id) => PRESETS.find((p) => p.id === id) || PRESETS[4];
 
 // 声の名前から男性・女性を見分けるための手がかり（主な端末の日本語の声）
 const MALE_RE = /otoya|ichiro|keita|daichi|naoki|masaru|hattori|takumi|kenji|hiroshi|男性|\bmale\b/i;
@@ -56,8 +65,8 @@ let jaVoices = [];
 function loadVoices() {
   const all = synth ? synth.getVoices() : [];
   jaVoices = all.filter((v) => /^ja([-_]|$)/i.test(v.lang));
-  // 自然な声（Natural / Online / Google / Premium など）を先に並べる
-  const score = (v) => (/natural|online|neural|premium|enhanced|google/i.test(v.name) ? 0 : 1) + (v.localService ? 0 : -0.1);
+  // 人の声に近い声（Natural / Online / Google / 拡張 / プレミアム など）を先に並べる
+  const score = (v) => (/natural|online|neural|premium|enhanced|siri|google|拡張|プレミアム|高品質/i.test(v.name) ? 0 : 1) + (v.localService ? 0 : -0.1);
   jaVoices.sort((a, b) => score(a) - score(b));
   renderDeviceVoices();
   renderTuning();
@@ -89,6 +98,7 @@ function resolvePreset(p) {
       const pool = local.length ? local : base;
       voice = pool[p.slot % pool.length];
     } else {
+      // 女性・大阪のおばちゃん：自然な声（一覧の先頭）を優先
       const base = others.length ? others : jaVoices;
       voice = base[p.slot % base.length];
     }
@@ -102,13 +112,13 @@ function resolvePreset(p) {
 function renderVoiceGroups() {
   const wrap = $('voiceGroups');
   wrap.innerHTML = '';
-  const groups = [...new Set(PRESETS.map((p) => p.group))];
-  for (const g of groups) {
+  for (const g of GROUPS) {
     const box = document.createElement('div');
-    box.className = 'voice-group';
-    box.innerHTML = `<h3>${g}</h3><div class="voice-grid"></div>`;
+    box.className = `voice-group g-${g.key}`;
+    box.innerHTML = `<h3><span class="g-icon">${g.icon}</span>${g.title}</h3>` +
+      (g.note ? `<p class="g-note">${g.note}</p>` : '') + '<div class="voice-grid"></div>';
     const grid = box.querySelector('.voice-grid');
-    for (const p of PRESETS.filter((x) => x.group === g)) {
+    for (const p of PRESETS.filter((x) => x.gender === g.key)) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'voice-btn' + (p.id === settings.presetId ? ' selected' : '');
@@ -123,6 +133,9 @@ function renderVoiceGroups() {
     }
     wrap.appendChild(box);
   }
+  const cur = presetById(settings.presetId);
+  $('currentVoice').textContent = `${groupOf(cur).icon} ${fullName(cur)}`;
+  renderDialect();
 }
 
 function renderVoiceNote() {
@@ -150,8 +163,7 @@ function sample(p) {
 
 function makeUtterance(text, p) {
   const r = resolvePreset(p);
-  let spoken = cleanForSpeech(applyDict(text));
-  if (p.gender === 'anime' && settings.lisp) spoken = lisp(spoken);
+  const spoken = speechText(text, p);
   const u = new SpeechSynthesisUtterance(spoken);
   u.lang = 'ja-JP';
   if (r.voice) u.voice = r.voice;
@@ -161,6 +173,16 @@ function makeUtterance(text, p) {
 }
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
+// 実際に声に出す文：読み方辞書 → 関西弁 → 記号を取りのぞく → 舌足らず の順に変える
+const dialectOf = (p) => p.dialect || settings.dialect;
+function speechText(text, p) {
+  let t = applyDict(text);
+  t = Dialect.convert(t, { dialect: dialectOf(p), obachan: p.gender === 'obachan' });
+  t = cleanForSpeech(t);
+  if (p.gender === 'anime' && settings.lisp) t = lisp(t);
+  return t;
+}
+
 // 書いていない言葉を読まないように、端末によっては名前で読み上げてしまう
 // 絵文字・かっこ・記号（「かぎかっこ」「ほし」など）を、読む前に取りのぞく
 function cleanForSpeech(text) {
@@ -168,7 +190,9 @@ function cleanForSpeech(text) {
     .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]/gu, ' ')
     .replace(/[「」『』（）()【】〔〕［］[\]｛｝{}〈〉《》≪≫"“”‘’'＂]/g, ' ')
     .replace(/[※★☆♪♫♬■□◆◇●○◎△▲▽▼→←↑↓⇒⇔・＊*＃#＿_｜|＾^`｀〓]/g, ' ')
-    .replace(/[…‥]+/g, '、');
+    .replace(/[…‥]+/g, '、')
+    // 「。」のない行（見出しなど）も、文の終わりとして自然に下げて区切る
+    .replace(/([^。！？!?、\s])[ \t　]*\n/g, '$1。\n');
 }
 
 // 舌足らずな話し方：さ行・ざ行を「しゃ・しゅ・しぇ・しょ」に（です→でしゅ、さん→しゃん）
@@ -289,13 +313,21 @@ const hasSpeakable = (s) => /[\p{L}\p{N}]/u.test(s);
 
 // =============================================================
 // 読み上げ（再生・一時停止・前後の文へ移動）
-// 一時停止は「今の文の最初から再開」にしています（スマホでも確実に動くため）。
+// 人が話すようになめらかにするため、
+//  ・短い文はいくつかまとめて読む（文と文のあいだが不自然に空かない）
+//  ・次のまとまりを先に順番待ちに入れておく（声の切りかえで止まらない）
+// 一時停止は「今のまとまりの最初から再開」にしています（スマホでも確実に動くため）。
 // =============================================================
+const SEG_MAX = 150; // ひとまとめにして読む文字数のめやす
+
 const player = {
   chunks: [],
   idx: 0,
+  segEnd: 0,
   playing: false,
   token: 0,
+  queuedTo: 0,
+  pending: 0,
   sourceText: null,
 
   prepare() {
@@ -315,8 +347,8 @@ const player = {
     if (this.idx >= this.chunks.length) this.idx = 0;
     this.playing = true;
     showReading(true);
-    this.speakCurrent();
-    updatePlayerUI();
+    synth.cancel();
+    this.speakFrom(this.idx);
   },
 
   pause() {
@@ -344,33 +376,71 @@ const player = {
     this.token++;
     synth.cancel();
     // cancel の直後に話させると無視される端末があるので、少し待つ
-    setTimeout(() => { if (this.playing) this.speakCurrent(); }, 80);
+    setTimeout(() => { if (this.playing) this.speakFrom(this.idx); }, 80);
   },
 
-  speakCurrent() {
-    while (this.idx < this.chunks.length && !hasSpeakable(cleanForSpeech(this.chunks[this.idx].text))) this.idx++;
-    if (this.idx >= this.chunks.length) { this.finish(); return; }
+  // i 番目の文から、SEG_MAX 文字くらいまでの文をひとまとめにする
+  segmentFrom(i) {
+    while (i < this.chunks.length && !hasSpeakable(cleanForSpeech(this.chunks[i].text))) i++;
+    if (i >= this.chunks.length) return null;
+    let j = i;
+    let text = '';
+    while (j < this.chunks.length) {
+      const t = this.chunks[j].text;
+      if (j > i && text.length + t.length > SEG_MAX) break;
+      text += t;
+      j++;
+      if (/\n\s*\n\s*$/.test(text)) break; // 段落の切れ目では区切る
+    }
+    return { from: i, to: j, text };
+  },
+
+  speakFrom(i) {
     const token = ++this.token;
-    const u = makeUtterance(this.chunks[this.idx].text, presetById(settings.presetId));
-    u.onend = () => {
-      if (token !== this.token || !this.playing) return;
-      this.idx++;
-      this.speakCurrent();
+    this.queuedTo = i;
+    this.pending = 0;
+    this.idx = i;
+    this.segEnd = i + 1;
+    this.enqueue(token);
+    this.enqueue(token);
+    if (!this.pending) this.finish();
+    updatePlayerUI();
+  },
+
+  enqueue(token) {
+    const seg = this.segmentFrom(this.queuedTo);
+    if (!seg) return;
+    this.queuedTo = seg.to;
+    this.pending++;
+    const u = makeUtterance(seg.text, presetById(settings.presetId));
+    const live = () => token === this.token && this.playing;
+    u.onstart = () => {
+      if (!live()) return;
+      this.idx = seg.from;
+      this.segEnd = seg.to;
+      updatePlayerUI();
     };
+    const done = () => {
+      if (!live()) return;
+      this.pending--;
+      this.idx = seg.to;
+      this.enqueue(token);
+      if (this.pending <= 0) this.finish();
+    };
+    u.onend = done;
     u.onerror = (e) => {
-      if (token !== this.token || !this.playing) return;
+      if (!live()) return;
       if (e.error === 'interrupted' || e.error === 'canceled') return;
       if (e.error === 'not-allowed') { this.pause(); toast('もう一度 ▶ を押してください'); return; }
-      this.idx++;
-      this.speakCurrent();
+      done();
     };
     synth.speak(u);
-    updatePlayerUI();
   },
 
   finish() {
     this.playing = false;
     this.idx = 0;
+    showReading(false);
     updatePlayerUI();
     toast('最後まで読み上げました');
   },
@@ -416,7 +486,8 @@ function updatePlayerUI() {
     : '';
   const spans = $('readView').children;
   for (let i = 0; i < spans.length; i++) {
-    spans[i].className = i < player.idx ? 'done' : (i === player.idx && !$('readView').hidden ? 'now' : '');
+    const now = i >= player.idx && i < Math.max(player.segEnd, player.idx + 1) && (player.playing || i === player.idx);
+    spans[i].className = i < player.idx ? 'done' : (now ? 'now' : '');
   }
   const now = spans[player.idx];
   if (now && player.playing) {
@@ -433,6 +504,7 @@ $('btnNext').addEventListener('click', () => player.jump(player.idx + 1));
 
 $('ttsText').addEventListener('input', () => {
   updateCount();
+  renderPreview();
   player.idx = 0;
 });
 function updateCount() {
@@ -474,11 +546,47 @@ $('btnClearTts').addEventListener('click', () => {
   updateCount();
 });
 
+// ---------- 話し方（標準語・関西弁） ----------
+function renderDialect() {
+  const p = presetById(settings.presetId);
+  const forced = !!p.dialect;
+  const cur = dialectOf(p);
+  document.querySelectorAll('[data-dialect]').forEach((b) => {
+    b.classList.toggle('selected', b.dataset.dialect === cur);
+    b.disabled = forced && b.dataset.dialect !== cur;
+  });
+  $('dialectNote').textContent = forced
+    ? '大阪のおばちゃんは、いつも関西弁で話します。'
+    : cur === 'kansai'
+      ? '「ほんまに」「〜やで」「〜へん」のように、言い回しを関西弁にして読みます（画面の文章は変わりません）。'
+      : 'ふつうの標準語で読みます。';
+  renderPreview();
+}
+document.querySelectorAll('[data-dialect]').forEach((b) => b.addEventListener('click', () => {
+  settings.dialect = b.dataset.dialect;
+  saveSettings();
+  renderDialect();
+  if (player.playing) player.restartCurrent();
+}));
+
+// 実際に声に出す言葉を確認する（関西弁・舌足らず・記号の取りのぞき後）
+function renderPreview() {
+  const box = $('previewBox');
+  if (!box.open) return;
+  const p = presetById(settings.presetId);
+  const text = $('ttsText').value.slice(0, 800);
+  $('previewText').textContent = text.trim()
+    ? speechText(text, p) + ($('ttsText').value.length > 800 ? '…（続く）' : '')
+    : '文章を入れると、ここに実際に読む言葉が出ます。';
+}
+$('previewBox').addEventListener('toggle', renderPreview);
+
 $('btnSample').addEventListener('click', () => sample(presetById(settings.presetId)));
 $('optLisp').checked = settings.lisp;
 $('optLisp').addEventListener('change', (e) => {
   settings.lisp = e.target.checked;
   saveSettings();
+  renderPreview();
   if (player.playing && presetById(settings.presetId).gender === 'anime') player.restartCurrent();
 });
 
@@ -509,7 +617,7 @@ function renderTuning() {
     row.className = 'tune';
     const name = document.createElement('div');
     name.className = 't-name';
-    name.innerHTML = `${p.name}<br><small>${p.desc}</small>`;
+    name.innerHTML = `${groupOf(p).icon} ${fullName(p)}<br><small>${p.desc}</small>`;
 
     const sel = document.createElement('select');
     sel.innerHTML = `<option value="">自動${r.voice && !tune.voiceURI ? `（${escapeHtml(r.voice.name)}）` : ''}</option>` +

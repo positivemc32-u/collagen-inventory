@@ -1,10 +1,11 @@
 // オフラインでも開けるように、アプリ本体（画面のファイル）だけを保存しておく仕組みです。
 // アプリを更新したときは CACHE_NAME の数字を上げると確実に反映されます。
-const CACHE_NAME = 'yomiage-app-v2';
+const CACHE_NAME = 'yomiage-app-v3';
 const FILES = [
   './',
   './index.html',
   './style.css',
+  './dialect.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',

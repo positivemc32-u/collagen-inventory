@@ -38,6 +38,15 @@
       </div>
 
       <div class="card">
+        <h2>話し方</h2>
+        <div class="seg">
+          <button type="button" data-dialect="standard">🗼 標準語</button>
+          <button type="button" data-dialect="kansai">🐙 関西弁</button>
+        </div>
+        <p class="hint" id="dialectNote"></p>
+      </div>
+
+      <div class="card">
         <h2>声を選ぶ</h2>
         <div id="voiceGroups"></div>
         <label class="check"><input type="checkbox" id="optLisp" checked> アニメの子ども役は舌足らずに話す（です→でしゅ など）</label>
@@ -45,6 +54,10 @@
           <button type="button" id="btnSample">🔊 試し聞き</button>
         </div>
         <p class="hint" id="voiceNote"></p>
+        <details id="previewBox" class="preview">
+          <summary>👀 実際に読む言葉を確認する</summary>
+          <div id="previewText"></div>
+        </details>
       </div>
 
       <div class="card">
@@ -62,6 +75,7 @@
       </div>
 
       <div class="player">
+        <div class="now-voice">声：<b id="currentVoice"></b></div>
         <div class="progress"><div class="bar" id="progressBar"></div></div>
         <div class="player-btns">
           <button type="button" id="btnPrev" title="前の文">⏮</button>
@@ -122,6 +136,17 @@
       </div>
 
       <div class="card">
+        <h2>🗣 もっと人の声に近づけるには</h2>
+        <p class="hint">このアプリは端末に入っている声を使います。端末に「高品質な声」を入れると、ぐっと人の声に近くなります（無料）。入れたあと、このアプリを開き直してください。</p>
+        <ul class="howto">
+          <li><b>iPhone・iPad</b>：設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 日本語 → 「Kyoko（拡張）」（女性）と「Otoya（拡張）」（男性）をダウンロード</li>
+          <li><b>Android</b>：設定 → 「テキスト読み上げ」で検索 → 優先するエンジンを「Google 音声サービス」にする → ⚙ → 音声データをインストール → 日本語 → 好きな声を選ぶ</li>
+          <li><b>Windows パソコン</b>：<b>Edge</b> で開く（「Nanami」「Keita」の Natural 音声がいちばん自然です）</li>
+          <li><b>Mac</b>：システム設定 → アクセシビリティ → 読み上げコンテンツ → システムの声 → 声を管理 → 日本語の「Kyoko（拡張）」「Otoya（拡張）」を追加</li>
+        </ul>
+      </div>
+
+      <div class="card">
         <h2>ℹ️ この端末で使える日本語の声</h2>
         <ul class="voice-list" id="deviceVoices"></ul>
         <p class="hint">声の種類や自然さは、端末・ブラウザに入っている音声によって変わります。パソコンの <b>Edge</b> の「Microsoft Nanami / Keita（Natural）」や、<b>Chrome</b> の「Google 日本語」は特に自然です。</p>
@@ -137,6 +162,7 @@
 
   <div class="toast" id="toast" hidden></div>
 
+  <script src="dialect.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

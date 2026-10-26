@@ -10,7 +10,7 @@ const STORAGE_KEY = 'ryoshusho-v1';
 //    このファイルは GitHub で公開されています。入れた情報はこの端末のブラウザの中だけに保存されます。
 // 登録番号は「人（事業者）」ごとに1つなので、同じ人が出すならサロン名でも同じ番号を使えます。
 const DEFAULT_ISSUERS = [
-  { id: 'issuer1', name: '', zip: '', address: '', tel: '', regNo: '' },
+  { id: 'main', name: '', zip: '', address: '', tel: '', regNo: '' },
 ];
 
 const TADASHI_CHOICES = ['お品代として', '商品代として', '施術代として', '体験料として'];
@@ -68,7 +68,8 @@ function exportJson(db) {
 function importJson(text) {
   let d;
   try { d = JSON.parse(text); } catch (e) { throw new Error('ファイルの形がちがいます（領収書アプリのバックアップを選んでください）'); }
-  if (!d || d.kind !== BACKUP_KIND || !d.db) throw new Error('領収書アプリのバックアップではありません');
+  // 以前の「⚙️ 設定」のバックアップ（app: 'ryoshusho'）も読めるようにしておく
+  if (!d || !(d.kind === BACKUP_KIND || d.app === 'ryoshusho') || !d.db) throw new Error('領収書アプリのバックアップではありません');
   const src = d.db;
   if (!Array.isArray(src.receipts)) throw new Error('領収書のデータが見つかりません');
   const def = defaultDb();
@@ -77,7 +78,7 @@ function importJson(text) {
   const receipts = src.receipts.filter((r) => r && r.id && Array.isArray(r.items));
   const maxNo = receipts.reduce((m, r) => Math.max(m, Number(r.no) || 0), 0);
   if (!(settings.nextNo > maxNo)) settings.nextNo = maxNo + 1;
-  return { db: { ...def, settings, receipts }, exportedAt: d.exportedAt || null };
+  return { db: { ...def, settings, receipts }, exportedAt: d.exportedAt || d.savedAt || null };
 }
 
 function receiptsTotal(list) { return list.reduce((sum, r) => sum + calcReceipt(r).total, 0); }
