@@ -3,7 +3,7 @@
 その場で領収書を作って、**LINE やメールで送れる画像（PNG）か PDF** にするアプリです。
 パソコンでも携帯でも、ブラウザで開くだけで使えます。
 
-- URL：`https://（ユーザー名）.github.io/collagen-inventory/ryoshusho/`
+- URL：<https://positivemc32-u.github.io/collagen-inventory/ryoshusho/>
   （コラーゲン管理アプリと同じ GitHub Pages の中にあります。main に取り込めば自動で公開されます）
 - 携帯ではホーム画面に追加すると、アプリのように使えます（方法は上のフォルダの README と同じです）
 
