@@ -138,11 +138,68 @@ function kurageSVG(color = '#7fd8f6') {
     `<g class="f1">${rects(KURAGE_LEGS[0], 7)}</g><g class="f2">${rects(KURAGE_LEGS[1], 7)}</g></svg>`;
 }
 
+// ---------- クラゲの日常の動き ----------
+// 小さなクラゲが、ランダムにいろいろなことをします（歩く・寝る・お茶・新聞…）
+const KG_ACTIONS = [
+  { act: 'idle', ms: 2600 },
+  { act: 'walk', ms: 2400, move: true },
+  { act: 'walk', ms: 2400, move: true },
+  { act: 'jump', ms: 1500 },
+  { act: 'sleep', ms: 5200, prop: '💤' },
+  { act: 'busy', ms: 3600, prop: '🍵' },
+  { act: 'busy', ms: 3600, prop: '📰' },
+  { act: 'busy', ms: 3800, prop: '💻' },
+  { act: 'busy', ms: 3200, prop: '🍙' },
+  { act: 'busy', ms: 3400, prop: '📱' },
+  { act: 'busy', ms: 3400, prop: '🌱' },
+  { act: 'dance', ms: 3000, prop: '🎵' },
+  { act: 'stretch', ms: 2200 },
+  { act: 'look', ms: 2400 },
+  { act: 'sneeze', ms: 1700, prop: '💦' },
+  { act: 'spin', ms: 1300 },
+  { act: 'sway', ms: 3200, prop: '☂️' },
+  { act: 'sway', ms: 3000, prop: '🎈' },
+];
+function kurageHTML() {
+  return `<span class="kg" data-act="idle" data-dir="right"><span class="kg-flip"><span class="kg-body">${kurageSVG()}</span></span><span class="kg-prop"></span></span>`;
+}
+const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function kurageTick() {
+  const now = Date.now();
+  const vh = window.innerHeight;
+  document.querySelectorAll('.kg').forEach((kg) => {
+    if (now < (kg._until || 0)) return;
+    const r = kg.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > vh || (!r.width && !r.height)) return; // 見えていないクラゲは休ませる
+    const stage = kg.parentElement.classList.contains('kg-stage') ? kg.parentElement : null;
+    let a;
+    do { a = KG_ACTIONS[Math.floor(Math.random() * KG_ACTIONS.length)]; } while ((a.move && !stage) || (a.act === kg.dataset.act && a.prop === kg._prop));
+    kg.dataset.act = a.act;
+    kg._prop = a.prop;
+    kg.querySelector('.kg-prop').textContent = a.prop || '';
+    kg._until = now + a.ms + Math.random() * 1200;
+    if (a.move) {
+      const max = Math.max(0, stage.clientWidth - kg.offsetWidth - 20);
+      const cur = parseFloat(kg.style.left) || 40;
+      const next = Math.round(Math.random() * max);
+      kg.dataset.dir = next < cur ? 'left' : 'right';
+      kg.style.left = `${next}px`;
+    } else if (Math.random() < 0.3) {
+      kg.dataset.dir = kg.dataset.dir === 'left' ? 'right' : 'left';
+    }
+  });
+}
+function setupKurageActors() {
+  if (reduceMotion) return;
+  setInterval(kurageTick, 600);
+}
+
 // ---------- 表示 ----------
 function renderHeader() {
   const t = new Date();
   $('todayLabel').textContent = `${t.getFullYear()}年${t.getMonth() + 1}月${t.getDate()}日（${WEEK[t.getDay()]}）`;
-  document.querySelector('.brand-kurage').innerHTML = kurageSVG();
+  const brand = document.querySelector('.brand-kurage');
+  if (!brand.firstChild) brand.innerHTML = kurageHTML();
 }
 
 function renderStale() {
@@ -216,7 +273,7 @@ function renderCard(sec, it, i) {
   card.innerHTML =
     `<div class="banner" style="--c1:${sec.c1};--c2:${sec.c2}">` +
       `<span class="banner-tag">${esc(sec.emoji || '📌')} #${i + 1}${asOf ? `　${esc(asOf)}` : ''}</span>` +
-      `<div class="banner-kurage" style="animation-delay:${(-i * 0.7).toFixed(1)}s">${kurageSVG()}</div>` +
+      `<div class="kg-stage">${kurageHTML()}</div>` +
       `<div class="telop">${esc(it.telop || it.title)}</div>` +
     `</div>` +
     `<div class="card-body">` +
@@ -546,7 +603,7 @@ function setupPlayer() {
 const KURAGE_LINES = ['ぷかぷか〜', '今日もいい日！', 'ニュース読んだ？', '深呼吸しよ', 'ふわ〜', 'やっほー', 'お水のんでね', 'クラゲだよ'];
 function setupEdgeKurage() {
   const el = $('edgeKurage');
-  el.innerHTML = kurageSVG();
+  el.innerHTML = kurageHTML();
   const schedule = () => setTimeout(show, 12000 + Math.random() * 28000);
   function show() {
     if (!state.edge || document.hidden) { schedule(); return; }
@@ -773,6 +830,7 @@ function init() {
   renderAll();
   player.prepare();
   setupEdgeKurage();
+  setupKurageActors();
   // 日付が変わったら、占い・節気を今日の内容に
   let lastDay = ymd(today());
   setInterval(() => {
