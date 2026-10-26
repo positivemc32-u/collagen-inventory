@@ -142,7 +142,7 @@
     // 3つにまとめる：総合運とリーディング／西洋占星術と数秘術（世界生まれ）／九星気学と風水（日本で広まったもの）
     return [
       {
-        target: 'みんな', region: '日本',
+        target: 'あなた', region: '日本',
         telop: `今日の運気 ${stars(score)}`,
         title: `${fmtDate(today)}の総合運は ${stars(score)}`,
         summary: `${natal.sunSign.name}生まれのあなたにとって、今日は${rel.text}。` +
@@ -156,7 +156,7 @@
         sources: [], kind: 'fortune',
       },
       {
-        target: 'みんな', region: '世界',
+        target: 'あなた', region: '世界',
         telop: `月は${moon.sign.name} 数秘は${num.personalDay}`,
         title: `西洋占星術と数秘術：今日の月は${moon.sign.name}、あなたは「${num.personalDay}」の日`,
         summary: `${MOON_TODAY[moon.sign.name]}数秘術では${PERSONAL_DAY[num.personalDay]}`,
@@ -166,7 +166,7 @@
         sources: [], kind: 'fortune',
       },
       {
-        target: 'みんな', region: '日本',
+        target: 'あなた', region: '日本',
         telop: `${hon.name} 今日の風水`,
         title: `九星気学・風水：本命星は${hon.name}、今日は${kanshi.name}の日`,
         summary: EL_TIP[kanshi.el],

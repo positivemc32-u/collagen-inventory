@@ -40,9 +40,11 @@ const BUILTIN = [
     prompt: '分子栄養学・オーソモレキュラー・栄養素（ビタミン、ミネラル、脂肪酸など）に関する最近の研究やニュース。エビデンスの強さも一言添えて' },
 ];
 
-// 聞いてほしい人（ターゲット）。再生は基本この順（若い順・女性をまとめて先に）。設定で並べ替えられます
-const TARGETS = ['30代女性', '40代女性', '50代女性', '30代男性', '40代男性', '50代男性', 'みんな'];
-const TARGET_ICON = { 女性: '👩', 男性: '👨', みんな: '👥' };
+// 聞いてほしい人（ターゲット）。各項目にこの6人へ1記事ずつ。再生は基本この順（若い順・女性をまとめて先に）。設定で並べ替えられます
+// 「あなた」は設定した人の占い、「みんな」は節気・旬など全員向け
+const PEOPLE = ['30代女性', '40代女性', '50代女性', '30代男性', '40代男性', '50代男性'];
+const TARGETS = [...PEOPLE, 'あなた', 'みんな'];
+const TARGET_ICON = { 女性: '👩', 男性: '👨', あなた: '🔮', みんな: '👥' };
 const targetIcon = (t) => TARGET_ICON[(t || 'みんな').replace(/^\d+代/, '')] || '👥';
 
 const DEFAULT_STATE = {
@@ -106,7 +108,7 @@ function birthForCalc() {
 }
 
 const BIRTH_PROMPT_ITEM = {
-  target: 'みんな',
+  target: 'あなた',
   title: '🎂 生年月日を入れると、毎日の占いが出ます',
   summary: '下の「🎂 生年月日を変える」か「⚙️ 設定」で、生年月日（わかれば時間と生まれた場所も）を入れてください。',
   detail: '入れた生年月日は、この端末のブラウザの中だけに保存されます。GitHub やインターネットには載りません。',
@@ -124,7 +126,10 @@ function itemsFor(sec) {
     const ai = aiCache.sections[sec.id];
     if (ai && ai.items && ai.items.length) items = ai.items.map((x) => ({ ...x, asOf: ai.date }));
     else if (!sec.custom && window.KURAGE_NEWS?.sections?.[sec.id]) items = KURAGE_NEWS.sections[sec.id].map((x) => ({ ...x, asOf: KURAGE_NEWS.date }));
-    if (sec.id === 'season') items = [KurageFortune.shunItem(t), ...items];
+    // 6人のターゲットの順（設定の順番）に並べる
+    const rank = (it) => { const r = state.targetOrder.indexOf(it.target || 'みんな'); return r < 0 ? 99 : r; };
+    items = items.map((x, n) => ({ x, n })).sort((a, b) => rank(a.x) - rank(b.x) || a.n - b.n).map((o) => o.x);
+    if (sec.id === 'season') items = [...items, KurageFortune.shunItem(t)];
   }
   const mine = (state.userItems[sec.id] || []).map((x, i) => ({ ...x, mine: i }));
   return [...items, ...mine].map((x) => ({ ...x, asOf: x.asOf || (x.kind ? todayStr : x.date) }));
@@ -866,7 +871,7 @@ function renderPlayOrder() {
 }
 function renderIndexNote() {
   $('orderNote').textContent = state.playOrder === 'target'
-    ? `▶ 再生の順番：${state.targetOrder.filter((t) => t !== 'みんな').join('→')}（⚙️ 設定で変えられます）`
+    ? `▶ 再生の順番：${state.targetOrder.filter((t) => PEOPLE.includes(t)).join('→')}（⚙️ 設定で変えられます）`
     : '▶ 再生の順番：目次の順（⚙️ 設定で変えられます）';
 }
 
@@ -957,7 +962,7 @@ async function runAI(ids) {
     if (!s) continue;
     msg(`🤖 ${s.title} を調べています…（${done + 1}/${ids.length}）`);
     try {
-      const items = await window.KurageAI.fetchSection({ apiKey: key, title: s.title, prompt: s.prompt, count: 3, targets: TARGETS.filter((t) => t !== 'みんな'), date: new Date() });
+      const items = await window.KurageAI.fetchSection({ apiKey: key, title: s.title, prompt: s.prompt, count: PEOPLE.length, targets: PEOPLE, date: new Date() });
       aiCache.sections[id] = { date: todayStr, items };
       saveJSON(AI_KEY, aiCache);
       renderAll();
