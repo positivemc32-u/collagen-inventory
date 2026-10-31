@@ -35,7 +35,7 @@
     <button type="button" id="btnNext" class="pbtn" aria-label="次のニュース">⏭</button>
     <button type="button" id="btnMute" class="pbtn" aria-label="ミュート">🔊</button>
     <div class="player-mid">
-      <div id="nowReading" class="now-reading">▶ を押すと、上から順に読み上げます</div>
+      <div id="nowReading" class="now-reading">▶ を押すか、記事をタップすると読み上げます</div>
       <div class="player-opts">
         <select id="voiceSel" aria-label="声">
           <option value="male">🎙 落ち着いた男性</option>
@@ -55,6 +55,7 @@
         <h2>📑 目次 <small>（≡ をつまんで上下にドラッグすると順番を変えられます）</small></h2>
         <button type="button" id="btnAddSection" class="small">＋ 項目を足す</button>
       </div>
+      <p id="orderNote" class="order-note"></p>
       <ol id="indexList" class="index-list"></ol>
     </nav>
 
@@ -120,6 +121,21 @@
           <label>場所の名前<input id="bPlaceName" placeholder="例：パリ"></label>
           <label>時差（日本は 9）<input type="number" step="0.5" id="bTz" value="9"></label>
         </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>▶ 再生の順番</legend>
+        <label class="check"><input type="radio" name="playOrder" value="target"> ターゲット順（30代女性 → 40代女性 → … の順に全部の項目から）</label>
+        <label class="check"><input type="radio" name="playOrder" value="index"> 目次の順（項目ごと）</label>
+        <div id="targetOrder"></div>
+        <button type="button" id="btnResetTargets" class="small">ターゲットの順番を最初に戻す</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>🎙 声をくわしく選ぶ</legend>
+        <select id="voicePick" aria-label="端末の声"></select>
+        <div class="btn-row"><button type="button" id="btnVoiceTest" class="small">🔊 試し聞き</button></div>
+        <p id="voiceNote" class="hint"></p>
       </fieldset>
 
       <fieldset>
