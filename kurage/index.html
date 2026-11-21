@@ -60,6 +60,7 @@
     </nav>
 
     <div id="sections"></div>
+    <p id="vvCredit" class="foot" hidden></p>
     <p class="foot">ニュースは調べた時点の内容です。くわしくは各記事の出典でご確認ください。占いは楽しみとしてどうぞ🪼</p>
   </main>
 
@@ -91,7 +92,6 @@
       <label>見出し<input id="itemTitle" required maxlength="80"></label>
       <label>ひとことで<textarea id="itemSummary" rows="3"></textarea></label>
       <label>解説<textarea id="itemDetail" rows="3"></textarea></label>
-      <label>話すときのネタ<textarea id="itemTalk" rows="2"></textarea></label>
       <label>出典のURL（あれば）<input id="itemUrl" type="url" placeholder="https://"></label>
       <div class="btn-row">
         <button value="cancel" formnovalidate>やめる</button>
@@ -112,6 +112,17 @@
           <label>市町村<input id="locName" placeholder="例：○○市"></label>
           <label>くわしい地名（なくても可）<input id="locAreas" placeholder="例：○○温泉・○○町など"></label>
         </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>☀️ 天気の地域</legend>
+        <p class="hint">市町村の名前で探して選んでください（例：「○○市」）。選んだ地域はこの端末の中だけに保存されます。天気は無料の天気サービス「Open-Meteo」から、選んだ場所の緯度・経度で取ってきます。</p>
+        <div class="grid2">
+          <label>市町村の名前<input id="wxQuery" placeholder="例：○○市" autocomplete="off"></label>
+          <div class="btn-row"><button type="button" id="btnWxSearch" class="small">🔍 探す</button></div>
+        </div>
+        <select id="wxPick" aria-label="見つかった地域" hidden></select>
+        <p id="wxNow" class="hint"></p>
       </fieldset>
 
       <fieldset>
@@ -140,6 +151,21 @@
       </fieldset>
 
       <fieldset>
+        <legend>🎙 VOICEVOX の声で読む（さくらのAI Engine）</legend>
+        <p class="hint">さくらインターネットの「さくらのAI Engine」の音声合成を使うと、VOICEVOX のキャラクターの声（おすすめ：冥鳴ひまり）で読み上げます。トークンはこの端末の中だけに保存し、さくらインターネットにだけ送ります。利用料はさくらのAI Engine の料金になります。うまく使えないときは、端末の声で読みます。</p>
+        <label class="check"><input type="checkbox" id="vvOn"> VOICEVOX の声で読む</label>
+        <label>さくらのAI Engine のアカウントトークン<input type="password" id="vvToken" autocomplete="off" placeholder="コントロールパネルで発行したトークン"></label>
+        <div class="grid2">
+          <label>音声モデル名<input id="vvModel" placeholder="himari" autocomplete="off"></label>
+          <label>話し方（voice）<input id="vvVoice" placeholder="normal" autocomplete="off"></label>
+        </div>
+        <p class="hint">音声モデル名は、さくらのコントロールパネルの「音声合成」に出ている名前に合わせてください（冥鳴ひまりは最初から「himari」を入れてあります）。</p>
+        <div class="btn-row"><button type="button" id="btnVvTest" class="small">🔊 VOICEVOX の声を試し聞き</button></div>
+        <p id="vvStatus" class="hint" style="white-space:pre-line"></p>
+        <p class="hint">クレジット：VOICEVOX:冥鳴ひまり</p>
+      </fieldset>
+
+      <fieldset>
         <legend>🤖 Claudeで今日のニュースに更新（任意）</legend>
         <p class="hint">Anthropic の APIキーを入れると、ボタン1つでその日のニュースをClaudeがインターネットで調べて入れ替えます（APIの利用料がかかります）。キーはこの端末の中だけに保存され、Anthropic 以外には送りません。</p>
         <label>APIキー<input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-..."></label>
@@ -158,7 +184,6 @@
       <fieldset>
         <legend>🪼 クラゲ</legend>
         <label class="check"><input type="checkbox" id="optEdge" checked> 画面の端にときどきクラゲを出す</label>
-        <label class="check"><input type="checkbox" id="optReadTalk" checked> 読み上げで「話すときのネタ」も読む</label>
       </fieldset>
 
       <div class="btn-row">
@@ -170,6 +195,7 @@
   <script src="astro.js"></script>
   <script src="news.js"></script>
   <script src="fortune.js"></script>
+  <script src="weather.js"></script>
   <script src="app.js"></script>
   <script type="module" src="ai.js"></script>
 </body>

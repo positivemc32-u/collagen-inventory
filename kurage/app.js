@@ -11,6 +11,7 @@ const $ = (id) => document.getElementById(id);
 const STORE_KEY = 'kurage-news-v1';
 const AI_KEY = 'kurage-news-ai-v1';
 const APIKEY_KEY = 'kurage-news-apikey';
+const VV_TOKEN_KEY = 'kurage-news-vvtoken'; // さくらのAI Engine のトークン（この端末の中だけ）
 const synth = window.speechSynthesis || null;
 
 // ---------- 最初から入っている項目 ----------
@@ -18,16 +19,24 @@ const synth = window.speechSynthesis || null;
 const BUILTIN = [
   { id: 'today', emoji: '🗞', title: '今日の話題ニュース', c1: '#0e5a8a', c2: '#06263d',
     prompt: '今日いちばん話題になっていて、人に話したりメールで教えたりしたくなる日本と世界のニュース' },
+  // 今日の天気：地域は「⚙️ 設定」で市町村まで選ぶ（端末の中だけに保存）。天気は毎回自動で取ってくる
+  { id: 'weather', emoji: '☀️', title: '今日の天気', c1: '#2f7fbf', c2: '#0b2a45', auto: true, weather: true },
   { id: 'ishikawa', emoji: '🏯', title: '石川県ニュース', c1: '#7a3b2e', c2: '#2a120c',
     prompt: '石川県（金沢・能登など）の今日〜ここ数日の話題のニュース。暮らし・観光・イベント・復興など、人に話したくなるもの' },
   // 地元のニュース：地域は「⚙️ 設定」で入れる（端末の中だけに保存）。毎朝の自動更新には入れず、「🤖 Claudeで更新」で取ってくる
   { id: 'local', emoji: '♨️', title: '地元のニュース', c1: '#2f6a5a', c2: '#0c2620', prompt: '', local: true },
   { id: 'kosodate', emoji: '🧸', title: '子育て', c1: '#a35a7a', c2: '#3a1428',
     prompt: '子育てに関する今話題のニュース。制度・手当・教育・健康・遊び・調査など、親どうしの会話のネタになるもの' },
+  { id: 'kids', emoji: '📰', title: '子ども新聞から', c1: '#d08a1e', c2: '#3d2606',
+    prompt: '子ども向けの新聞（朝日小学生新聞・読売KODOMO新聞・毎日小学生新聞など）や、子ども向けのやさしいニュースで取り上げられている最近の話題。子どもにもわかる言葉で' },
   { id: 'sports', emoji: '⚾', title: 'スポーツ', c1: '#b5542b', c2: '#3a160a',
     prompt: '今日話題のスポーツニュース。スポーツにくわしくない人にもわかるよう、選手やチームの特徴、その競技のルールや見どころも短く面白く説明する（detail に書く）' },
   { id: 'music', emoji: '🎵', title: '音楽', c1: '#5a3d9a', c2: '#1b1036',
     prompt: '今話題の音楽ニュース（新曲・チャート・ライブ・アーティストの話題）' },
+  { id: 'science', emoji: '🔬', title: 'サイエンス', c1: '#1f6f78', c2: '#082a2e',
+    prompt: '最近の科学のニュース（宇宙・生き物・地球・技術・医学など）。むずかしい言葉はやさしく言いかえる' },
+  { id: 'anatomy', emoji: '🫀', title: '人体解剖学', c1: '#9a3b4a', c2: '#330f16',
+    prompt: '人体のしくみ（骨・筋肉・臓器・神経など）についての最近の研究やニュースと、知っておくと面白い体の豆知識。体の場所や働きをやさしく説明する' },
   { id: 'phyto', emoji: '🌿', title: '植物療法（フィトテラピー）', c1: '#2f7a5b', c2: '#0d3326',
     prompt: '植物療法（フィトテラピー・メディカルハーブ・漢方）の最近の話題やニュース。研究・商品・安全性' },
   { id: 'aroma', emoji: '🌸', title: 'アロマ', c1: '#8a4f7d', c2: '#2e1430',
@@ -58,12 +67,15 @@ const DEFAULT_STATE = {
   birth: { date: '', time: '', place: '', lat: '', lon: '', tz: 9, placeName: '' },
   // 地元のニュースの地域（例：name「○○市」、areas「○○温泉・○○町など」）。ここには書かず「⚙️ 設定」で入れる
   local: { name: '', areas: '' },
+  // 天気の地域（市町村の名前と緯度・経度）。ここには書かず「⚙️ 設定」で選ぶ
+  weather: { name: '', lat: '', lon: '' },
+  // 読み上げの声：'device'（端末の声）か 'sakura'（さくらのAI Engine の VOICEVOX の声）
+  tts: { engine: 'device', model: 'himari', voice: 'normal' },
   voice: 'male',
   voiceURI: '', // 「声をくわしく選ぶ」で選んだ端末の声
   rate: 1,
   muted: false,
   edge: true,
-  readTalk: true,
 };
 
 function loadJSON(key, fallback) {
@@ -76,8 +88,15 @@ function saveJSON(key, value) {
 const state = Object.assign(structuredClone(DEFAULT_STATE), loadJSON(STORE_KEY, {}));
 state.birth = Object.assign({}, DEFAULT_STATE.birth, state.birth);
 state.local = Object.assign({}, DEFAULT_STATE.local, state.local);
+state.weather = Object.assign({}, DEFAULT_STATE.weather, state.weather);
+state.tts = Object.assign({}, DEFAULT_STATE.tts, state.tts);
 // 新しく増えた最初からの項目があれば、順番の最後に足す
-for (const s of BUILTIN) if (!state.order.includes(s.id)) state.order.push(s.id);
+BUILTIN.forEach((s, i) => {
+  if (state.order.includes(s.id)) return;
+  const prev = BUILTIN.slice(0, i).reverse().find((b) => state.order.includes(b.id));
+  const at = prev ? state.order.indexOf(prev.id) + 1 : 0;
+  state.order.splice(at, 0, s.id);
+});
 for (const c of state.custom) if (!state.order.includes(c.id)) state.order.push(c.id);
 const save = () => saveJSON(STORE_KEY, state);
 
@@ -135,6 +154,29 @@ const BIRTH_PROMPT_ITEM = {
   talk: '生年月日を教えてくれたら、毎日の運気を見てあげるね。',
 };
 
+// ---------- 今日の天気（weather.js） ----------
+const WEATHER_PROMPT_ITEM = {
+  title: '📍 地域を選ぶと、今日の天気が出ます',
+  summary: '「⚙️ 設定」の「☀️ 天気の地域」で、市町村の名前を入れて選んでください。',
+  detail: '選んだ地域は、この端末のブラウザの中だけに保存されます。GitHub やインターネットには載りません。',
+};
+function weatherItems(todayStr) {
+  if (!window.KurageWeather) return [];
+  if (state.weather.lat === '' || state.weather.lat == null) return [{ ...WEATHER_PROMPT_ITEM }];
+  const got = KurageWeather.items(state.weather, todayStr);
+  if (got) { if (!weatherBusy) refreshWeather(); return got; }
+  refreshWeather();
+  return [{ title: `${state.weather.name}の天気を読み込んでいます…`, summary: '少し待つと表示されます。' }];
+}
+let weatherBusy = false;
+function refreshWeather() {
+  if (weatherBusy || !window.KurageWeather) return;
+  weatherBusy = true;
+  KurageWeather.refresh(state.weather, ymd(today()))
+    .then((changed) => { weatherBusy = false; if (changed && !player.playing) renderAll(); })
+    .catch(() => { weatherBusy = false; });
+}
+
 // ---------- 各項目の記事を集める ----------
 function itemsFor(sec) {
   const t = today();
@@ -149,6 +191,7 @@ function itemsFor(sec) {
     if (sec.id === 'season') items = [KurageFortune.seasonBrief(t), KurageFortune.shunItem(t), ...items.slice(0, 1)];
     if (sec.local && !state.local.name) items = [{ ...LOCAL_PROMPT_ITEM }];
   }
+  if (sec.weather) items = weatherItems(todayStr);
   const mine = (state.userItems[sec.id] || []).map((x, i) => ({ ...x, mine: i }));
   return [...items, ...mine].map((x) => ({ ...x, asOf: x.asOf || (x.kind ? todayStr : x.date) }));
 }
@@ -283,6 +326,7 @@ function renderSections() {
       (!s.auto ? `<button type="button" class="small" data-act="write">✏️ 書く</button>` : '') +
       (!s.auto && hasKey ? `<button type="button" class="small" data-act="ai">🤖 今日のニュースに更新</button>` : '') +
       (s.id === 'fortune' ? `<button type="button" class="small" data-act="birth">🎂 生年月日を変える</button>` : '') +
+      (s.weather ? `<button type="button" class="small" data-act="wxarea">📍 地域を変える</button>` : '') +
       (s.custom ? `<button type="button" class="small" data-act="delsec">🗑 項目を消す</button>` : '') +
       `</div></div>`;
     if (!items.length) {
@@ -324,7 +368,6 @@ function renderCard(sec, it, i) {
       (it.summary ? `<p class="summary">${esc(it.summary)}</p>` : '') +
       (it.detail ? `<p class="detail">${esc(it.detail)}</p>` : '') +
       (it.world ? `<p class="world">${esc(it.world)}</p>` : '') +
-      (it.talk ? `<p class="talk">${esc(it.talk)}</p>` : '') +
       (srcs ? `<p class="sources">出典：${srcs}</p>` : '') +
       `<div class="card-actions"><button type="button" class="small" data-act="read">🔊 ここから再生</button>` +
       (it.mine != null ? `<button type="button" class="small" data-act="edit">✏️ 直す</button><button type="button" class="small" data-act="del">🗑 消す</button>` : '') +
@@ -354,6 +397,7 @@ function onSectionAction(e, s) {
   if (act === 'readsec') player.playFrom(cardKey(s.id, 0));
   if (act === 'write') openItemDialog(s.id, null);
   if (act === 'birth') openSettings(true);
+  if (act === 'wxarea') { openSettings(); $('wxQuery').focus(); }
   if (act === 'ai') runAI([s.id]);
   if (act === 'delsec' && confirm(`「${s.title}」の項目を消しますか？（書いた記事も消えます）`)) {
     state.custom = state.custom.filter((c) => c.id !== s.id);
@@ -491,26 +535,82 @@ function speechText(sec, it) {
   if (it.summary) parts.push(it.summary);
   if (it.detail) parts.push(it.detail);
   if (it.world) parts.push('世界から見ると、' + it.world);
-  if (it.talk && state.readTalk) parts.push('話すときは、' + it.talk);
   return parts.join('\n')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '')
     .replace(/[★☆]+/g, (m) => `星${(m.match(/★/g) || []).length}つ。`)
     .replace(/〜/g, 'から').replace(/…/g, '、').replace(/[「」『』（）()“”]/g, ' ').replace(/[＝=]/g, 'イコール');
 }
-function splitChunks(text) {
+function splitChunks(text, max = 120) {
   const out = [];
+  let buf = '';
   for (const part of text.split(/(?<=[。！？!?\n])/)) {
     let p = part.trim();
-    while (p.length > 120) { out.push(p.slice(0, 120)); p = p.slice(120); }
-    if (p) out.push(p);
+    if (!p) continue;
+    while (p.length > max) { if (buf) { out.push(buf); buf = ''; } out.push(p.slice(0, max)); p = p.slice(max); }
+    if (max > 120 && buf && (buf + p).length <= max) { buf += p; continue; }
+    if (buf) out.push(buf);
+    buf = p;
   }
+  if (buf) out.push(buf);
   return out;
 }
+const chunkMax = () => (vv.enabled() ? 240 : 120);
+
+// ---------- VOICEVOX の声（さくらのAI Engine の音声合成） ----------
+// トークンはこの端末の中だけに保存し、さくらインターネットの API にだけ送ります。
+const VV_URL = 'https://api.ai.sakura.ad.jp/v1/audio/speech';
+function getVvToken() { try { return localStorage.getItem(VV_TOKEN_KEY) || ''; } catch { return ''; } }
+const vv = {
+  audio: null,
+  cache: new Map(),
+  failed: false,
+  enabled() { return state.tts.engine === 'sakura' && !!getVvToken() && !this.failed; },
+  el() {
+    if (!this.audio) {
+      this.audio = new Audio();
+      this.audio.setAttribute('playsinline', '');
+      this.audio.preservesPitch = true;
+    }
+    return this.audio;
+  },
+  // iPhone では、ボタンを押したときに一度鳴らしておかないと、あとから音が出せない
+  unlock() {
+    try {
+      const a = this.el();
+      if (!a.src) a.src = audioFocus.url || (audioFocus.url = audioFocus.silentUrl());
+      a.play().catch(() => {});
+    } catch { /* なにもしない */ }
+  },
+  fetchWav(text) {
+    if (this.cache.has(text)) return this.cache.get(text);
+    const p = fetch(VV_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getVvToken()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: state.tts.model || 'himari', voice: state.tts.voice || 'normal', input: text, response_format: 'wav' }),
+    }).then(async (r) => {
+      if (!r.ok) {
+        const t = await r.text().catch(() => '');
+        throw new Error(`さくらのAI Engine からエラー（${r.status}）${t ? '：' + t.slice(0, 160) : ''}`);
+      }
+      return URL.createObjectURL(await r.blob());
+    });
+    this.cache.set(text, p);
+    p.catch(() => this.cache.delete(text));
+    if (this.cache.size > 60) {
+      const [k, old] = this.cache.entries().next().value;
+      this.cache.delete(k);
+      old.then((u) => URL.revokeObjectURL(u)).catch(() => {});
+    }
+    return p;
+  },
+  stop() { try { if (this.audio) { this.audio.onended = null; this.audio.pause(); } } catch { /* なにもしない */ } },
+};
 
 // iPhone などでは、ページが「音を再生中」になると、ほかのアプリの音楽が止まります。
 // 読み上げのあいだ、無音の音声を流して音の出口をこのアプリに切り替えます。
 const audioFocus = {
   el: null,
+  url: '',
   silentUrl() {
     const rate = 8000, n = rate; // 1秒ぶんの無音（8bit）
     const buf = new ArrayBuffer(44 + n);
@@ -586,22 +686,26 @@ const player = {
   },
   prepare() {
     const p = playlist[this.idx];
-    this.chunks = p ? splitChunks(speechText(p.sec, p.it)) : [];
+    this.chunks = p ? splitChunks(speechText(p.sec, p.it), chunkMax()) : [];
   },
   start() {
-    if (!synth) { alert('このブラウザは音声読み上げに対応していません。'); return; }
+    if (!synth && !vv.enabled()) { alert('このブラウザは音声読み上げに対応していません。'); return; }
     if (!playlist.length) return;
     this.playing = true;
+    if (vv.enabled()) vv.unlock();
     audioFocus.start();
     updatePlayerUI();
     this.highlight(true);
     this.speak();
   },
   speak() {
-    synth.cancel();
+    synth && synth.cancel();
+    vv.stop();
     const my = ++this.token;
     if (!this.playing || state.muted) return;
     if (this.chunk >= this.chunks.length) { this.next(true); return; }
+    if (vv.enabled()) { this.speakVV(my); return; }
+    if (!synth) return;
     const u = new SpeechSynthesisUtterance(this.chunks[this.chunk]);
     const vs = voiceSetting(state.voice);
     if (vs.voice) try { u.voice = vs.voice; } catch { /* 声を選べない環境ではふつうの声で */ }
@@ -619,6 +723,33 @@ const player = {
       this.speak();
     };
     synth.speak(u);
+  },
+  speakVV(my) {
+    const text = this.chunks[this.chunk];
+    const nextP = playlist[this.idx + 1];
+    const ahead = this.chunks[this.chunk + 1] || (nextP && splitChunks(speechText(nextP.sec, nextP.it), chunkMax())[0]);
+    vv.fetchWav(text).then((url) => {
+      if (my !== this.token || !this.playing || state.muted) return;
+      const a = vv.el();
+      a.src = url;
+      a.playbackRate = Math.max(0.5, Math.min(2, state.rate));
+      a.onended = () => {
+        if (my !== this.token || !this.playing) return;
+        this.chunk++;
+        setTimeout(() => { if (my === this.token && this.playing) this.speak(); }, this.chunk >= this.chunks.length ? 500 : 80);
+      };
+      a.play().catch((err) => this.vvFailed(my, err));
+      if (ahead) vv.fetchWav(ahead).catch(() => {});
+    }).catch((err) => this.vvFailed(my, err));
+  },
+  vvFailed(my, err) {
+    if (my !== this.token) return;
+    vv.failed = true; // この後は端末の声で読む（設定の「試し聞き」で直したら元に戻る）
+    console.error(err);
+    $('nowReading').textContent = `⚠️ VOICEVOX の声が使えなかったので、端末の声で読みます（${err.message || err}）`;
+    this.chunks = splitChunks(speechText(playlist[this.idx].sec, playlist[this.idx].it), chunkMax());
+    this.chunk = 0;
+    this.speak();
   },
   next(auto = false) {
     if (this.idx >= playlist.length - 1) {
@@ -642,6 +773,7 @@ const player = {
     this.playing = false;
     this.token++;
     synth && synth.cancel();
+    vv.stop();
     audioFocus.stop();
     audioFocus.updateMedia();
     updatePlayerUI();
@@ -681,7 +813,7 @@ function updatePlayerUI() {
 function setMuted(m) {
   state.muted = m;
   save();
-  if (m) { player.token++; synth && synth.cancel(); }
+  if (m) { player.token++; synth && synth.cancel(); vv.stop(); }
   else if (player.playing) player.speak();
   updatePlayerUI();
 }
@@ -722,7 +854,7 @@ function setupPlayer() {
     h('nexttrack', () => player.next());
     h('previoustrack', () => player.prev());
   }
-  window.addEventListener('pagehide', () => synth && synth.cancel());
+  window.addEventListener('pagehide', () => { synth && synth.cancel(); vv.stop(); });
 }
 
 // =============================================================
@@ -794,7 +926,6 @@ function openItemDialog(secId, mineIdx) {
   $('itemTitle').value = it.title || '';
   $('itemSummary').value = it.summary || '';
   $('itemDetail').value = it.detail || '';
-  $('itemTalk').value = it.talk || '';
   $('itemUrl').value = it.sources?.[0]?.url || '';
   $('dlgItem').showModal();
 }
@@ -807,7 +938,6 @@ function setupItemDialog() {
       title: $('itemTitle').value.trim(),
       summary: $('itemSummary').value.trim(),
       detail: $('itemDetail').value.trim(),
-      talk: $('itemTalk').value.trim(),
       sources: safeUrl(url) ? [{ name: new URL(url).hostname, url }] : [],
       date: ymd(today()),
     };
@@ -839,8 +969,15 @@ function openSettings(focusBirth = false) {
   $('customPlace').hidden = sel.value !== 'custom';
   $('bLat').value = b.lat; $('bLon').value = b.lon; $('bTz').value = b.tz ?? 9; $('bPlaceName').value = b.placeName || '';
   $('apiKey').value = getApiKey();
+  $('wxQuery').value = state.weather.name || '';
+  $('wxPick').hidden = true;
+  $('wxNow').textContent = state.weather.name ? `いまの地域：${state.weather.name}` : 'まだ選ばれていません。';
+  $('vvOn').checked = state.tts.engine === 'sakura';
+  $('vvToken').value = getVvToken();
+  $('vvModel').value = state.tts.model || '';
+  $('vvVoice').value = state.tts.voice || '';
+  $('vvStatus').textContent = '';
   $('optEdge').checked = state.edge;
-  $('optReadTalk').checked = state.readTalk;
   renderToggles();
   renderVoicePicker();
   $('dlgSettings').showModal();
@@ -860,6 +997,15 @@ function renderToggles() {
     });
     box.appendChild(row);
   });
+}
+
+// VOICEVOX の声を使うときは、クレジットを表示する（キャラクターの利用規約）
+function renderCredit() {
+  const el = $('vvCredit');
+  if (!el) return;
+  const on = state.tts.engine === 'sakura' && !!getVvToken();
+  el.hidden = !on;
+  el.textContent = on ? `🎙 読み上げ：VOICEVOX:${/himari|ひまり/i.test(state.tts.model) ? '冥鳴ひまり' : state.tts.model}（さくらのAI Engine）` : '';
 }
 
 function renderIndexNote() {
@@ -915,6 +1061,65 @@ function setupSettings() {
     renderSections();
   });
   $('optEdge').addEventListener('change', (e) => { state.edge = e.target.checked; save(); });
+  // ☀️ 天気の地域
+  let wxResults = [];
+  const wxSearch = async () => {
+    const q = $('wxQuery').value.trim();
+    if (!q) return;
+    $('wxNow').textContent = '🔍 探しています…';
+    try {
+      wxResults = await KurageWeather.search(q);
+    } catch (err) { $('wxNow').textContent = `⚠️ ${err.message || err}`; return; }
+    const sel = $('wxPick');
+    sel.innerHTML = '';
+    if (!wxResults.length) { sel.hidden = true; $('wxNow').textContent = '見つかりませんでした。「○○市」の「市」を取るなど、書き方を変えてみてください。'; return; }
+    sel.add(new Option('（ここから選んでください）', ''));
+    wxResults.forEach((r, i) => sel.add(new Option(`${r.name}${r.pref ? `（${r.pref}）` : ''}`, String(i))));
+    sel.hidden = false;
+    $('wxNow').textContent = `${wxResults.length}件見つかりました。下から選んでください。`;
+  };
+  $('btnWxSearch').addEventListener('click', wxSearch);
+  $('wxQuery').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); wxSearch(); } });
+  $('wxPick').addEventListener('change', (e) => {
+    const r = wxResults[Number(e.target.value)];
+    if (!r || e.target.value === '') return;
+    state.weather = { name: r.name, lat: r.lat, lon: r.lon };
+    save();
+    $('wxNow').textContent = `いまの地域：${r.name}${r.pref ? `（${r.pref}）` : ''}`;
+    renderAll();
+  });
+  // 🎙 VOICEVOX の声
+  const saveVv = () => {
+    state.tts = { engine: $('vvOn').checked ? 'sakura' : 'device', model: $('vvModel').value.trim() || 'himari', voice: $('vvVoice').value.trim() || 'normal' };
+    try {
+      if ($('vvToken').value.trim()) localStorage.setItem(VV_TOKEN_KEY, $('vvToken').value.trim());
+      else localStorage.removeItem(VV_TOKEN_KEY);
+    } catch { /* 保存できない環境 */ }
+    vv.failed = false;
+    vv.cache.clear();
+    save();
+    renderCredit();
+    player.prepare();
+  };
+  ['vvOn', 'vvToken', 'vvModel', 'vvVoice'].forEach((id) => $(id).addEventListener('change', saveVv));
+  $('btnVvTest').addEventListener('click', async () => {
+    saveVv();
+    const st = $('vvStatus');
+    if (!getVvToken()) { st.textContent = '⚠️ さくらのAI Engine のトークンを入れてください。'; return; }
+    synth && synth.cancel();
+    vv.unlock();
+    st.textContent = '🔊 声を作っています…';
+    try {
+      const url = await vv.fetchWav('こんにちは。クラゲのニューストピックです。今日の話題をお届けします。');
+      const a = vv.el();
+      a.src = url;
+      a.playbackRate = Math.max(0.5, Math.min(2, state.rate));
+      await a.play();
+      st.textContent = '✅ 聞こえたら準備OKです。「VOICEVOX の声で読む」にチェックを入れると、この声で読み上げます。';
+    } catch (err) {
+      st.textContent = `⚠️ 声を作れませんでした：${err.message || err}\n・トークンが正しいか\n・さくらのコントロールパネルで音声モデルの利用規約に同意しているか\n・モデル名（${state.tts.model}）がコントロールパネルの表示と同じか\nを確かめてください。`;
+    }
+  });
   $('voicePick').addEventListener('change', (e) => { state.voiceURI = e.target.value; save(); player.restartChunk(); });
   $('btnVoiceTest').addEventListener('click', () => {
     if (!synth) return;
@@ -925,7 +1130,6 @@ function setupSettings() {
     u.lang = 'ja-JP'; u.pitch = vs.pitch; u.rate = vs.rate * state.rate;
     synth.speak(u);
   });
-  $('optReadTalk').addEventListener('change', (e) => { state.readTalk = e.target.checked; save(); player.prepare(); });
   $('btnResetOrder').addEventListener('click', () => {
     state.order = [...BUILTIN.map((s) => s.id), ...state.custom.map((c) => c.id)];
     save(); renderAll(); renderToggles();
@@ -981,6 +1185,7 @@ function init() {
   setupSettings();
   renderAll();
   renderIndexNote();
+  renderCredit();
   player.prepare();
   setupEdgeKurage();
   setupKurageActors();
