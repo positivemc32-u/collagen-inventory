@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリ本体（画面のファイル）だけを保存しておく仕組みです。
 // アプリを更新したときは CACHE_NAME の数字を上げると確実に反映されます。
-const CACHE_NAME = 'kurage-app-v28';
+const CACHE_NAME = 'kurage-app-v29';
 const FILES = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const FILES = [
   './astro.js',
   './fortune.js',
   './weather.js',
+  './speech.js',
   './news.js',
   './ai.js',
   './manifest.webmanifest',
@@ -31,7 +32,10 @@ self.addEventListener('activate', (e) => {
 
 // ネットにつながるときは最新版を取得し、つながらないときは保存しておいた版を使う
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  // 毎朝作る音声（audio/）は保存せず、そのままネットから読む（容量をふくらませないため）
+  if (url.pathname.includes('/audio/')) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

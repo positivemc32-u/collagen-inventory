@@ -19,3 +19,6 @@ Thumbs.db
 .vscode/
 .idea/
 node_modules/
+
+# 毎朝 GitHub Actions が作る音声（リポジトリには入れない）
+kurage/audio/

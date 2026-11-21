@@ -60,7 +60,7 @@
     </nav>
 
     <div id="sections"></div>
-    <p id="vvCredit" class="foot" hidden></p>
+    <p id="vvCredit" class="foot" style="white-space:pre-line" hidden></p>
     <p class="foot">ニュースは調べた時点の内容です。くわしくは各記事の出典でご確認ください。占いは楽しみとしてどうぞ🪼</p>
   </main>
 
@@ -151,8 +151,15 @@
       </fieldset>
 
       <fieldset>
+        <legend>🎙 冥鳴ひまりの声で読む（無料）</legend>
+        <p class="hint">毎朝ニュースを更新するときに、VOICEVOX の「冥鳴ひまり」の声で音声を作っておきます。料金はかからず、このアプリを使う人はだれでもこの声で聞けます。天気・占い・地元のニュースなど端末ごとにちがう記事は、下の「さくらのAI Engine」か端末の声で読みます。</p>
+        <label class="check"><input type="checkbox" id="preOn"> 作っておいた冥鳴ひまりの声で読む</label>
+        <p id="preNote" class="hint"></p>
+      </fieldset>
+
+      <fieldset>
         <legend>🎙 VOICEVOX の声で読む（さくらのAI Engine）</legend>
-        <p class="hint">さくらインターネットの「さくらのAI Engine」の音声合成を使うと、VOICEVOX のキャラクターの声（おすすめ：冥鳴ひまり）で読み上げます。トークンはこの端末の中だけに保存し、さくらインターネットにだけ送ります。利用料はさくらのAI Engine の料金になります。うまく使えないときは、端末の声で読みます。</p>
+        <p class="hint">さくらインターネットの「さくらのAI Engine」の音声合成を使うと、VOICEVOX のキャラクターの声（おすすめ：冥鳴ひまり）で読み上げます。上の「作っておいた音声」がない記事（天気・占いなど）も、この声で読めます。トークンはこの端末の中だけに保存し、さくらインターネットにだけ送ります。利用料はさくらのAI Engine の料金になります。うまく使えないときは、端末の声で読みます。</p>
         <label class="check"><input type="checkbox" id="vvOn"> VOICEVOX の声で読む</label>
         <label>さくらのAI Engine のアカウントトークン<input type="password" id="vvToken" autocomplete="off" placeholder="コントロールパネルで発行したトークン"></label>
         <div class="grid2">
@@ -194,6 +201,7 @@
 
   <script src="astro.js"></script>
   <script src="news.js"></script>
+  <script src="speech.js"></script>
   <script src="fortune.js"></script>
   <script src="weather.js"></script>
   <script src="app.js"></script>
