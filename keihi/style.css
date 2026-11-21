@@ -178,3 +178,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .badge { background: var(--warn-soft); color: var(--text); }
 .badge.done { background: var(--accent-soft); color: var(--accent); }
 .toast { white-space: nowrap; }
+/* ---------- 町内会の帳簿 ---------- */
+.book-tabs { margin-bottom: 12px; }
+.line.no-rate { grid-template-areas: "acc acc del" "amt amt del"; }
+@media (min-width: 760px) { .line.no-rate { grid-template-columns: 1fr 160px 40px; grid-template-areas: "acc amt del"; } }
+.chonai-group + .chonai-group { border-top: 1px dashed var(--line); margin-top: 12px; padding-top: 4px; }

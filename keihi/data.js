@@ -14,6 +14,11 @@ const DEFAULT_ACCOUNTS = [
 // 個人のお財布・個人のカードで払った経費は「事業主借」
 const DEFAULT_CREDITS = ['現金', '事業主借', '普通預金', '未払金'];
 
+// 町内会の会計帳簿で使う科目（支出）の初期値。帳簿アプリの科目に合わせて「⚙️ 設定」で直せます。
+const DEFAULT_CHONAI_SUBJECTS = [
+  '事務費', '会議費', '電気料', '水道料', '集会所管理費', '保険料', '慶弔費', '祭り経費', '振込手数料',
+];
+
 // 税率 → 弥生の税区分（税込で入力するので「内」）
 const RATES = [
   { rate: 10, label: '10%', kbn: '課対仕入内10%' },
@@ -45,8 +50,9 @@ function yen(n) { return '¥' + Math.round(Number(n) || 0).toLocaleString('ja-JP
 
 function defaultDb() {
   return {
-    entries: [], // { id, date, store, regNo, memo, credit, lines:[{account, rate, amount}], hasImage, exportedAt, createdAt }
-    storeMap: {}, // 店名 → 前に選んだ勘定科目（次から自動で選ばれます）
+    // book: 'biz'（事業・弥生）か 'chonai'（町内会）。kaikei: 町内会の会計の名前（分けていなければ空）
+    entries: [], // { id, book, kaikei, date, store, regNo, memo, credit, lines:[{account, rate, amount}], hasImage, exportedAt, createdAt }
+    storeMap: {}, // 店名 → 前に選んだ勘定科目（次から自動で選ばれます）。町内会の分は「c:店名」
     settings: {
       accounts: DEFAULT_ACCOUNTS.slice(),
       credits: DEFAULT_CREDITS.slice(),
@@ -54,6 +60,12 @@ function defaultDb() {
       defaultCredit: '現金',
       // 登録番号（T＋13けた）のないレシートに、経過措置の税区分（区80% / 区50%）を付けるか
       keika: false,
+      // 町内会の帳簿
+      chonaiSubjects: DEFAULT_CHONAI_SUBJECTS.slice(),
+      chonaiDefault: '事務費',
+      chonaiAccounts: [], // 会計の名前（帳簿アプリで会計を分けているときだけ）
+      lastBook: 'biz', // 前に使った帳簿（次のレシートも同じ帳簿で始まる）
+      lastKaikei: '',
     },
   };
 }
@@ -79,6 +91,8 @@ function saveDb(db) {
   }
 }
 
+function bookOf(e) { return e.book === 'chonai' ? 'chonai' : 'biz'; }
+
 function entryTotal(e) { return e.lines.reduce((s, l) => s + (Number(l.amount) || 0), 0); }
 
 // 税区分（弥生に書き出す文字）
@@ -97,6 +111,11 @@ function guessAccount(store, text, db) {
     if (words.some((w) => hay.includes(w)) && db.settings.accounts.includes(acc)) return acc;
   }
   return db.settings.defaultAccount;
+}
+function guessChonaiSubject(store, db) {
+  const key = normStore(store);
+  if (key && db.storeMap['c:' + key]) return db.storeMap['c:' + key];
+  return db.settings.chonaiDefault;
 }
 function normStore(s) { return String(s || '').replace(/\s+/g, '').trim(); }
 

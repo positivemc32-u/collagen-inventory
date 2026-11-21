@@ -12,7 +12,11 @@ const state = {
   progress: null, // 読み取り中の表示 { label, pct }
   ocrAbort: null, // 読み取りを途中でやめるため
   month: todayStr().slice(0, 7), // 一覧で見る月（'all' ならすべて）
+  book: 'biz', // 一覧で見る帳簿（'biz' 事業・弥生 / 'chonai' 町内会）
 };
+state.book = db.settings.lastBook === 'chonai' ? 'chonai' : 'biz';
+
+const BOOKS = { biz: '事業（弥生）', chonai: '町内会' };
 
 const $ = (sel) => document.querySelector(sel);
 const main = $('#main');
@@ -33,11 +37,34 @@ function toast(msg) {
 }
 
 function blankEntry() {
+  const s = settings();
+  const book = s.lastBook === 'chonai' ? 'chonai' : 'biz';
   return {
-    id: '', date: todayStr(), store: '', regNo: '', memo: '', credit: settings().defaultCredit,
-    lines: [{ account: settings().defaultAccount, rate: 10, amount: '' }],
+    id: '', book, kaikei: book === 'chonai' ? defaultKaikei() : '',
+    date: todayStr(), store: '', regNo: '', memo: '', credit: s.defaultCredit,
+    lines: [{ account: book === 'chonai' ? s.chonaiDefault : s.defaultAccount, rate: book === 'chonai' ? 0 : 10, amount: '' }],
     hasImage: false, exportedAt: '', createdAt: '', ocrText: '',
   };
+}
+function defaultKaikei() {
+  const list = settings().chonaiAccounts;
+  return list.includes(settings().lastKaikei) ? settings().lastKaikei : (list[0] || '');
+}
+
+// 帳簿を切り替えたとき：金額は合計1行にまとめ、科目はその帳簿のものを選び直す
+function switchDraftBook(book) {
+  const d = state.draft;
+  if (bookOf(d) === book) return;
+  const total = d.lines.reduce((sum, l) => sum + parseAmount(l.amount), 0) || '';
+  d.book = book;
+  if (book === 'chonai') {
+    d.kaikei = defaultKaikei();
+    d.lines = [{ account: guessChonaiSubject(d.store, db), rate: 0, amount: total }];
+  } else {
+    d.kaikei = '';
+    d.lines = [{ account: guessAccount(d.store, d.ocrText, db), rate: 10, amount: total }];
+  }
+  render();
 }
 
 function setDraftImage(blobOrNull) {
@@ -71,7 +98,8 @@ function renderScan() {
     return;
   }
   if (!state.draft) {
-    const unexported = db.entries.filter((e) => !e.exportedAt).length;
+    const unexported = db.entries.filter((e) => !e.exportedAt && bookOf(e) === 'biz').length;
+    const notPassed = db.entries.filter((e) => !e.exportedAt && bookOf(e) === 'chonai').length;
     main.innerHTML = `
       <section class="panel">
         <label class="btn primary block big file-btn">📷 レシートを撮る
@@ -82,7 +110,8 @@ function renderScan() {
         <p class="hint">撮るときのコツ：レシートを暗い色の机に置き、まっすぐ・明るく・レシート全体が入るように撮ると読み取りやすくなります。
           読み取ったあと、内容を確認・修正してから保存します。</p>
       </section>
-      ${unexported ? `<div class="notice">まだ書き出していないレシートが <b>${unexported}件</b> あります。「📋 一覧」から弥生用のCSV・Excelを書き出せます。</div>` : ''}`;
+      ${unexported ? `<div class="notice">まだ書き出していないレシートが <b>${unexported}件</b> あります。「📋 一覧」から弥生用のCSV・Excelを書き出せます。</div>` : ''}
+      ${notPassed ? `<div class="notice">町内会の帳簿にまだ渡していないレシートが <b>${notPassed}件</b> あります。「📋 一覧」→「町内会」からコピーできます。</div>` : ''}`;
     return;
   }
   renderEditor();
@@ -91,38 +120,48 @@ function renderScan() {
 function renderEditor() {
   const d = state.draft;
   const s = settings();
-  const accounts = [...new Set([...s.accounts, ...d.lines.map((l) => l.account)])];
+  const chonai = bookOf(d) === 'chonai';
+  const accounts = [...new Set([...(chonai ? s.chonaiSubjects : s.accounts), ...d.lines.map((l) => l.account)])];
   const credits = [...new Set([...s.credits, d.credit])];
+  const kaikeis = [...new Set([...s.chonaiAccounts, d.kaikei].filter(Boolean))];
   const total = entryTotal(d);
   main.innerHTML = `
     ${d.id ? `<div class="notice">保存済みのレシートを直しています。</div>` : ''}
     ${state.draftImageUrl ? `<a href="${state.draftImageUrl}" target="_blank" rel="noopener"><img class="photo" src="${state.draftImageUrl}" alt="レシートの写真"></a>` : ''}
     <section class="panel">
+      <div class="field"><label>どの帳簿のレシート？</label>
+        <div class="seg">${Object.entries(BOOKS).map(([k, v]) => `
+          <label><input type="radio" name="book" value="${k}" ${bookOf(d) === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}
+        </div>
+      </div>
       <div class="row2">
         <div class="field"><label>日付</label><input type="date" data-f="date" value="${esc(d.date)}"></div>
+        ${chonai ? (kaikeis.length ? `
+        <div class="field"><label>会計</label>
+          <select data-f="kaikei">${kaikeis.map((c) => `<option ${c === d.kaikei ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>` : '') : `
         <div class="field"><label>支払い <small>個人のお金なら事業主借</small></label>
-          <select data-f="credit">${credits.map((c) => `<option ${c === d.credit ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+          <select data-f="credit">${credits.map((c) => `<option ${c === d.credit ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>`}
       </div>
-      <div class="field"><label>店名 <small>弥生の「摘要」になります</small></label>
+      <div class="field"><label>店名 <small>${chonai ? '帳簿の「摘要」になります' : '弥生の「摘要」になります'}</small></label>
         <input type="text" data-f="store" value="${esc(d.store)}" placeholder="例：ダイソー ○○店"></div>
 
-      <div class="field"><label>金額（税込）・勘定科目</label>
+      <div class="field"><label>${chonai ? '金額・科目' : '金額（税込）・勘定科目'}</label>
         <div class="lines">
           ${d.lines.map((l, i) => `
-            <div class="line" data-i="${i}">
-              <select data-l="account" aria-label="勘定科目">${accounts.map((a) => `<option ${a === l.account ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
-              <select data-l="rate" aria-label="税率">${RATES.map((r) => `<option value="${r.rate}" ${r.rate === Number(l.rate) ? 'selected' : ''}>${r.label}</option>`).join('')}</select>
+            <div class="line${chonai ? ' no-rate' : ''}" data-i="${i}">
+              <select data-l="account" aria-label="${chonai ? '科目' : '勘定科目'}">${accounts.map((a) => `<option ${a === l.account ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
+              ${chonai ? '' : `<select data-l="rate" aria-label="税率">${RATES.map((r) => `<option value="${r.rate}" ${r.rate === Number(l.rate) ? 'selected' : ''}>${r.label}</option>`).join('')}</select>`}
               <input type="text" inputmode="numeric" data-l="amount" value="${esc(l.amount)}" placeholder="金額" aria-label="金額">
               <button type="button" class="icon-btn" data-act="delLine" ${d.lines.length < 2 ? 'disabled' : ''} aria-label="この行を消す">✕</button>
             </div>`).join('')}
         </div>
-        <button type="button" class="link" data-act="addLine">＋ 税率・科目を分ける（8%と10%が混ざったレシートなど）</button>
+        <button type="button" class="link" data-act="addLine">${chonai ? '＋ 科目を分ける' : '＋ 税率・科目を分ける（8%と10%が混ざったレシートなど）'}</button>
       </div>
       <div class="totals"><div class="grand"><span>合計</span><b id="draftTotal">${yen(total)}</b></div></div>
 
-      <div class="field"><label>登録番号 <small>T＋13けた（あれば）</small></label>
-        <input type="text" data-f="regNo" value="${esc(d.regNo)}" placeholder="T1234567890123" autocapitalize="characters"></div>
-      <div class="field"><label>メモ <small>摘要の店名のあとに付きます（例：コピー用紙）</small></label>
+      ${chonai ? '' : `<div class="field"><label>登録番号 <small>T＋13けた（あれば）</small></label>
+        <input type="text" data-f="regNo" value="${esc(d.regNo)}" placeholder="T1234567890123" autocapitalize="characters"></div>`}
+      <div class="field"><label>メモ <small>摘要の店名のあとに付きます（例：${chonai ? '封筒・切手' : 'コピー用紙'}）</small></label>
         <input type="text" data-f="memo" value="${esc(d.memo)}"></div>
 
       ${d.ocrText ? `<details class="ocr"><summary>読み取った文字を見る</summary><pre>${esc(d.ocrText)}</pre></details>` : ''}
@@ -171,8 +210,14 @@ async function nextFromQueue() {
   d.store = parsed.store;
   d.regNo = parsed.regNo;
   d.ocrText = parsed.text;
-  const acc = guessAccount(parsed.store, parsed.text, db);
-  d.lines = parsed.rates.map((r) => ({ account: acc, rate: r.rate, amount: r.amount || '' }));
+  if (bookOf(d) === 'chonai') {
+    // 町内会の帳簿は税率で分けないので、合計1行にする
+    const sum = parsed.rates.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+    d.lines = [{ account: guessChonaiSubject(parsed.store, db), rate: 0, amount: sum || '' }];
+  } else {
+    const acc = guessAccount(parsed.store, parsed.text, db);
+    d.lines = parsed.rates.map((r) => ({ account: acc, rate: r.rate, amount: r.amount || '' }));
+  }
   state.draft = d;
   state.progress = null;
   render();
@@ -190,15 +235,24 @@ async function saveDraft() {
   d.regNo = d.regNo.replace(/\s/g, '').toUpperCase();
   d.lines = d.lines.map((l) => ({ ...l, rate: Number(l.rate), amount: parseAmount(l.amount) })).filter((l) => l.amount);
   if (!d.date) { toast('日付を入れてください'); return; }
-  if (!d.lines.length) { d.lines = [{ account: settings().defaultAccount, rate: 10, amount: '' }]; render(); toast('金額を入れてください'); return; }
+  const chonai = bookOf(d) === 'chonai';
+  if (!d.lines.length) {
+    d.lines = [{ account: chonai ? settings().chonaiDefault : settings().defaultAccount, rate: chonai ? 0 : 10, amount: '' }];
+    render(); toast('金額を入れてください'); return;
+  }
   if (!d.store) { toast('店名を入れてください'); return; }
   const isNew = !d.id;
   if (isNew) { d.id = uid(); d.createdAt = new Date().toISOString(); }
   if (state.draftImageBlob) {
     try { await imageStore.put(d.id, state.draftImageBlob); d.hasImage = true; } catch (e) { console.error(e); }
   }
-  // 次から同じ店は同じ科目を選ぶ
-  db.storeMap[normStore(d.store)] = d.lines[0].account;
+  d.book = bookOf(d);
+  if (chonai) d.regNo = '';
+  // 次から同じ店は同じ科目を選ぶ（町内会の分は別に覚える）。次のレシートも同じ帳簿で始める
+  db.storeMap[(chonai ? 'c:' : '') + normStore(d.store)] = d.lines[0].account;
+  settings().lastBook = d.book;
+  if (chonai && d.kaikei) settings().lastKaikei = d.kaikei;
+  state.book = d.book;
   const rec = clone(d);
   const i = db.entries.findIndex((e) => e.id === rec.id);
   if (i >= 0) { rec.exportedAt = ''; db.entries[i] = rec; } else db.entries.push(rec);
@@ -231,7 +285,7 @@ function shiftMonth(m, k) {
 }
 function entriesInView() {
   return db.entries
-    .filter((e) => state.month === 'all' || e.date.startsWith(state.month))
+    .filter((e) => bookOf(e) === state.book && (state.month === 'all' || e.date.startsWith(state.month)))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.createdAt < b.createdAt ? -1 : 1)));
 }
 
@@ -241,7 +295,11 @@ function renderList() {
   const byAcc = {};
   for (const e of list) for (const l of e.lines) byAcc[l.account] = (byAcc[l.account] || 0) + Number(l.amount || 0);
   const notYet = list.filter((e) => !e.exportedAt).length;
+  const chonai = state.book === 'chonai';
   main.innerHTML = `
+    <div class="seg book-tabs">${Object.entries(BOOKS).map(([k, v]) => `
+      <label><input type="radio" name="viewBook" value="${k}" ${state.book === k ? 'checked' : ''}><span>${v}</span></label>`).join('')}
+    </div>
     <div class="month-nav">
       <button type="button" class="icon-btn" data-act="prevMonth" aria-label="前の月">◀</button>
       <b>${monthLabel(state.month)}</b>
@@ -250,11 +308,12 @@ function renderList() {
     </div>
 
     <div class="total-card">
-      <div class="total-label">経費の合計（${list.length}件）</div>
+      <div class="total-label">${chonai ? '町内会の支出' : '経費'}の合計（${list.length}件）</div>
       <div class="total-value">${yen(total)}</div>
       ${Object.keys(byAcc).length ? `<div class="total-sub">${Object.entries(byAcc).sort((a, b) => b[1] - a[1]).map(([a, v]) => `${esc(a)} ${yen(v)}`).join('　')}</div>` : ''}
     </div>
 
+    ${chonai ? renderChonaiExport(list) : `
     <section class="panel">
       <h2>書き出し <small>${monthLabel(state.month)}の${list.length}件${notYet ? `（うち未書き出し ${notYet}件）` : ''}</small></h2>
       <div class="export-btns">
@@ -263,7 +322,7 @@ function renderList() {
       </div>
       <p class="hint">弥生用CSV は「やよいの青色申告」の［帳簿・伝票］→［仕訳日記帳］→［ファイル］→［インポート］で取り込めます。
         Excel は一覧（見る用）と、弥生と同じ並びのシートが入っています。</p>
-    </section>
+    </section>`}
 
     <div class="cards">
       ${list.length ? list.map((e) => `
@@ -271,10 +330,65 @@ function renderList() {
           <span class="e-date">${esc(e.date.replace(/-/g, '/'))}</span>
           <span class="e-amt">${yen(entryTotal(e))}</span>
           <span class="e-store">${esc(e.store)}${e.memo ? ` <small>${esc(e.memo)}</small>` : ''}</span>
-          <span class="e-sub">${esc([...new Set(e.lines.map((l) => l.account))].join('・'))}／${esc(e.credit)}
-            ${e.hasImage ? '📷' : ''} ${e.exportedAt ? '<span class="badge done">書き出し済み</span>' : '<span class="badge">未書き出し</span>'}</span>
+          <span class="e-sub">${esc([...new Set(e.lines.map((l) => l.account))].join('・'))}／${esc(chonai ? (e.kaikei || '町内会') : e.credit)}
+            ${e.hasImage ? '📷' : ''} ${e.exportedAt ? `<span class="badge done">${chonai ? '帳簿に渡した' : '書き出し済み'}</span>` : `<span class="badge">${chonai ? 'まだ渡していない' : '未書き出し'}</span>`}</span>
         </button>`).join('') : '<p class="empty">この月のレシートはまだありません</p>'}
     </div>`;
+}
+
+// 町内会：会計ごとに「帳簿アプリに貼り付ける文字」をコピー・送信するボタン
+function chonaiGroups(list) {
+  const groups = new Map();
+  for (const e of list) {
+    const k = e.kaikei || '';
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  return groups;
+}
+function renderChonaiExport(list) {
+  const groups = [...chonaiGroups(list)];
+  return `
+    <section class="panel">
+      <h2>町内会の帳簿に渡す <small>${monthLabel(state.month)}の${list.length}件</small></h2>
+      ${groups.length ? groups.map(([k, es], gi) => {
+        const notYet = es.filter((e) => !e.exportedAt).length;
+        return `
+        <div class="chonai-group">
+          ${groups.length > 1 || k ? `<h3>${esc(k || '会計の指定なし')} <small>${es.length}件${notYet ? `（まだ渡していない ${notYet}件）` : ''}</small></h3>` : ''}
+          <div class="export-btns">
+            <button type="button" class="btn primary" data-act="chonaiCopy" data-g="${gi}">📋 コピー</button>
+            <button type="button" class="btn primary" data-act="chonaiSend" data-g="${gi}">📤 送る</button>
+          </div>
+          <details class="ocr"><summary>コピーされる文字を見る</summary><pre>${esc(makeChonaiText(es))}</pre></details>
+        </div>`;
+      }).join('') : '<p class="empty small">この月の町内会のレシートはまだありません</p>'}
+      <p class="hint">会計帳簿アプリで${groups.length > 1 ? 'その会計と' : ''}年度を選び、「📷 写真から」の欄に貼り付けて「読み取る」→ 確認して「帳簿に書き込む」。
+        同じ日・同じ金額がもう帳簿にあると、帳簿アプリが知らせてくれます。
+        帳簿アプリがパソコンにあるときは「送る」でメールや LINE で自分に送り、パソコンでコピーして貼り付けてください。
+        年度の境目をまたぐ月は、年度ごとに分けて貼り付けてください。</p>
+    </section>`;
+}
+
+async function passToChonai(gi, how) {
+  const es = [...chonaiGroups(entriesInView()).values()][gi];
+  if (!es || !es.length) return;
+  const text = makeChonaiText(es);
+  const label = state.month === 'all' ? 'all' : state.month.replace('-', '');
+  let ok;
+  if (how === 'copy') {
+    ok = await copyText(text);
+    toast(ok ? `${es.length}件をコピーしました。帳簿アプリの「写真から」に貼り付けてください` : 'コピーできませんでした。「コピーされる文字を見る」から選んでコピーしてください');
+  } else {
+    const res = await sendText(text, `chonai_${label}.txt`);
+    ok = res !== 'cancel';
+    if (ok) toast(res === 'shared' ? '送りました' : '保存しました');
+  }
+  if (!ok) return;
+  const now = new Date().toISOString();
+  for (const e of es) { const rec = db.entries.find((x) => x.id === e.id); if (rec) rec.exportedAt = now; }
+  persist();
+  render();
 }
 
 async function exportFile(kind) {
@@ -321,6 +435,17 @@ function renderSettings() {
     </section>
 
     <section class="panel">
+      <h2>町内会の帳簿</h2>
+      <p class="hint">会計帳簿アプリの支出の科目と、同じ名前にしてください。帳簿アプリの科目を「、」や改行で区切ってまとめて貼り付けてもかまいません。</p>
+      <textarea rows="6" data-s="chonaiSubjects">${esc(s.chonaiSubjects.join('\n'))}</textarea>
+      <div class="field"><label>はじめに選ばれる科目</label>
+        <select data-s="chonaiDefault">${s.chonaiSubjects.map((a) => `<option ${a === s.chonaiDefault ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select></div>
+      <h3>会計の名前 <small>帳簿アプリで会計を分けているときだけ。1行に1つ</small></h3>
+      <textarea rows="3" data-s="chonaiAccounts" placeholder="例：一般会計">${esc(s.chonaiAccounts.join('\n'))}</textarea>
+      <button type="button" class="btn block" data-act="saveChonai">💾 町内会の設定を保存</button>
+    </section>
+
+    <section class="panel">
       <h2>消費税</h2>
       <label class="check"><input type="checkbox" data-s="keika" ${s.keika ? 'checked' : ''}>
         登録番号のないレシートに経過措置の税区分を付ける
@@ -342,6 +467,8 @@ function renderSettings() {
 }
 
 function linesOf(text) { return [...new Set(text.split('\n').map((x) => x.trim()).filter(Boolean))]; }
+// 改行・「、」・「,」・タブで区切られた一覧（帳簿アプリの科目をまとめて貼れるように）
+function splitList(text) { return [...new Set(text.split(/[\n、,，\t]+/).map((x) => x.trim()).filter(Boolean))]; }
 
 // ---------- 入力の反映 ----------
 main.addEventListener('input', (ev) => {
@@ -382,7 +509,9 @@ main.addEventListener('change', async (ev) => {
     }
     return;
   }
-  if (t.dataset.s === 'defaultAccount' || t.dataset.s === 'defaultCredit') {
+  if (t.name === 'book' && state.draft) { switchDraftBook(t.value); return; }
+  if (t.name === 'viewBook') { state.book = t.value; render(); return; }
+  if (t.dataset.s === 'defaultAccount' || t.dataset.s === 'defaultCredit' || t.dataset.s === 'chonaiDefault') {
     settings()[t.dataset.s] = t.value; persist(); toast('保存しました');
   }
   if (t.dataset.s === 'keika') { settings().keika = t.checked; persist(); toast('保存しました'); }
@@ -398,7 +527,8 @@ main.addEventListener('click', async (ev) => {
   if (act === 'manual') { state.draft = blankEntry(); setDraftImage(null); state.draftImageBlob = null; render(); }
   if (act === 'addLine') {
     const last = state.draft.lines[state.draft.lines.length - 1];
-    state.draft.lines.push({ account: last.account, rate: last.rate === 10 ? 8 : 10, amount: '' });
+    const rate = bookOf(state.draft) === 'chonai' ? 0 : (last.rate === 10 ? 8 : 10);
+    state.draft.lines.push({ account: last.account, rate, amount: '' });
     render();
   }
   if (act === 'delLine') {
@@ -427,6 +557,17 @@ main.addEventListener('click', async (ev) => {
   if (act === 'allMonths') { state.month = state.month === 'all' ? todayStr().slice(0, 7) : 'all'; render(); }
   if (act === 'csv') await exportFile('csv');
   if (act === 'xlsx') await exportFile('xlsx');
+  if (act === 'chonaiCopy') await passToChonai(Number(b.dataset.g), 'copy');
+  if (act === 'chonaiSend') await passToChonai(Number(b.dataset.g), 'send');
+  if (act === 'saveChonai') {
+    const subjects = splitList(main.querySelector('[data-s="chonaiSubjects"]').value);
+    if (!subjects.length) { toast('科目を1つ以上入れてください'); return; }
+    const s = settings();
+    s.chonaiSubjects = subjects;
+    s.chonaiAccounts = splitList(main.querySelector('[data-s="chonaiAccounts"]').value);
+    if (!subjects.includes(s.chonaiDefault)) s.chonaiDefault = subjects[0];
+    persist(); render(); toast('保存しました');
+  }
   if (act === 'saveLists') {
     const acc = linesOf(main.querySelector('[data-s="accounts"]').value);
     const cr = linesOf(main.querySelector('[data-s="credits"]').value);

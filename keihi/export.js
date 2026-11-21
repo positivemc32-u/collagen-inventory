@@ -137,3 +137,65 @@ async function deliverFile(blob, filename) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   return 'downloaded';
 }
+
+// ---------- 町内会の会計帳簿アプリ用 ----------
+// 帳簿アプリの「📷 写真から」欄に貼り付けられる形：日付,科目,摘要,収入金額,支払金額,備考（1件1行）
+// 帳簿アプリは「,」「，」「|」「タブ」で列を分けるので、文字の中のそれらは「・」に置き換える
+function chonaiCell(s) { return String(s || '').replace(/\s*[,，|\t\r\n]+\s*/g, '・').trim(); }
+
+function chonaiRows(entries) {
+  const rows = [];
+  for (const e of entries) {
+    // 同じ科目の行は1行にまとめる（8%と10%に分かれていても、町内会の帳簿では1件）
+    const sums = new Map();
+    for (const l of e.lines) {
+      const amt = Math.round(Number(l.amount) || 0);
+      if (amt) sums.set(l.account, (sums.get(l.account) || 0) + amt);
+    }
+    const [y, m, d] = e.date.split('-').map(Number);
+    const tekiyo = chonaiCell(e.store + (e.memo ? '（' + e.memo + '）' : ''));
+    for (const [subject, amt] of sums) {
+      rows.push([`${y}/${m}/${d}`, chonaiCell(subject), tekiyo, 0, amt, '']);
+    }
+  }
+  return rows;
+}
+
+function makeChonaiText(entries) {
+  return chonaiRows(entries).map((r) => r.join(',')).join('\n');
+}
+
+// 文字をコピーする（できないブラウザでは、選択してコピーする昔の方法を使う）
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+}
+
+// 文字を送る：スマホは共有メニュー（メール・LINE など）、できなければ .txt ファイルで保存
+async function sendText(text, filename) {
+  const mobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  if (mobile && navigator.share) {
+    try {
+      await navigator.share({ text });
+      return 'shared';
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'cancel';
+    }
+  }
+  // Windows のメモ帳でも文字化けしないよう、先頭に BOM を付けた UTF-8 にする
+  return deliverFile(new Blob(['﻿' + text.replace(/\n/g, '\r\n') + '\r\n'], { type: 'text/plain' }), filename);
+}
