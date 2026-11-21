@@ -8,11 +8,11 @@ const MODEL = 'claude-opus-5-5';
 let sdkPromise = null;
 const loadSdk = () => (sdkPromise ||= import(SDK_URL).then((m) => m.default));
 
-const SYSTEM = `あなたは、日本語のニュースを「端的に・正確に・面白く・人に話せるように」まとめる編集者です。
+const SYSTEM = `あなたは、日本語のニュースを「端的に・正確に・わかりやすく」まとめる編集者です。
 必ず web_search で最新の報道を調べ、確認できた事実だけを書いてください。推測や作り話は禁止です。
 数字・日付・固有名詞は出典どおりに書き、はっきりしないことは「〜と報じられています」と書きます。
 最後に、次の形の JSON 配列だけを出力してください（前後に文章やコードブロックの記号を付けない）：
-[{"region":"日本 か 世界（どこ発信のニュースか）","telop":"画像に出す14文字以内のテロップ","title":"見出し（40文字以内）","summary":"何が起きたかを1〜2文で端的に","detail":"スポーツなど、くわしくない人向けの短い説明（必要なときだけ）","world":"日本発信のものだけ：世界からどう見られているか、または世界の似たもの（1〜2文）","talk":"人に話すときのひとこと（話し言葉で1文、ちょっと面白く）","sources":[{"name":"媒体名","url":"https://..."}]}]`;
+[{"region":"日本 か 世界（どこ発信のニュースか）","telop":"画像に出す14文字以内のテロップ","title":"見出し（40文字以内）","summary":"何が起きたかを1〜2文で端的に","detail":"スポーツなど、くわしくない人向けの短い説明（必要なときだけ）","world":"日本発信のものだけ：世界からどう見られているか、または世界の似たもの（1〜2文）","sources":[{"name":"媒体名","url":"https://..."}]}]`;
 
 function userPrompt({ title, prompt, count, date }) {
   const d = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
@@ -39,7 +39,6 @@ function parseItems(text) {
     summary: str(x.summary, 400),
     ...(x.detail ? { detail: str(x.detail, 400) } : {}),
     ...(x.region === '日本' && x.world ? { world: str(x.world, 400) } : {}),
-    talk: str(x.talk, 200),
     sources: (Array.isArray(x.sources) ? x.sources : [])
       .filter((s) => s && /^https?:\/\//i.test(s.url || ''))
       .slice(0, 3)

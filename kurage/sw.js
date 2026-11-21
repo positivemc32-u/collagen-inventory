@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリ本体（画面のファイル）だけを保存しておく仕組みです。
 // アプリを更新したときは CACHE_NAME の数字を上げると確実に反映されます。
-const CACHE_NAME = 'kurage-app-v27';
+const CACHE_NAME = 'kurage-app-v28';
 const FILES = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const FILES = [
   './app.js',
   './astro.js',
   './fortune.js',
+  './weather.js',
   './news.js',
   './ai.js',
   './manifest.webmanifest',
