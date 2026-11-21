@@ -1,0 +1,84 @@
+# =============================================================
+# GitHub Pages への公開（main が更新されるたびに動きます）
+# クラゲのニューストピックの記事を「VOICEVOX:冥鳴ひまり」の声で音声にしてから、サイト全体を公開します。
+# 音声はリポジトリには入れず、その日の公開サイトにだけ載せます（古い日の音声は残りません）。
+# 音声が作れなかったときも、サイトはふつうに公開されます（アプリは端末の声で読みます）。
+# =============================================================
+name: サイトの公開（クラゲの音声づくりつき）
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 前回作った音声を取り出す（同じ文章なら作り直さない）
+        uses: actions/cache/restore@v4
+        with:
+          path: vv-cache
+          key: kurage-vv-${{ hashFiles('kurage/news.js', 'kurage/speech.js') }}
+          restore-keys: kurage-vv-
+
+      - name: VOICEVOX ENGINE を起動
+        id: engine
+        continue-on-error: true
+        run: |
+          docker run -d --rm --name vv -p 50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 120); do
+            if curl -sf http://127.0.0.1:50021/version; then echo; exit 0; fi
+            sleep 2
+          done
+          echo "VOICEVOX ENGINE が起動しませんでした"; exit 1
+
+      - name: 冥鳴ひまりの声で音声を作る
+        if: steps.engine.outcome == 'success'
+        continue-on-error: true
+        run: |
+          command -v ffmpeg >/dev/null || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+          mkdir -p vv-cache
+          node kurage/tools/make-audio.mjs kurage/audio vv-cache
+
+      - name: 作った音声を次回のためにとっておく
+        if: hashFiles('kurage/audio/manifest.json') != ''
+        run: |
+          rm -rf vv-cache && mkdir vv-cache
+          cp kurage/audio/*.mp3 vv-cache/ 2>/dev/null || true
+
+      - uses: actions/cache/save@v4
+        if: hashFiles('kurage/audio/manifest.json') != ''
+        with:
+          path: vv-cache
+          key: kurage-vv-${{ hashFiles('kurage/news.js', 'kurage/speech.js') }}-${{ github.run_id }}
+
+      - name: 公開しないものを外す
+        run: rm -rf vv-cache
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

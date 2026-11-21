@@ -70,7 +70,8 @@ const DEFAULT_STATE = {
   // 天気の地域（市町村の名前と緯度・経度）。ここには書かず「⚙️ 設定」で選ぶ
   weather: { name: '', lat: '', lon: '' },
   // 読み上げの声：'device'（端末の声）か 'sakura'（さくらのAI Engine の VOICEVOX の声）
-  tts: { engine: 'device', model: 'himari', voice: 'normal' },
+  // premade：毎朝作っておいた「冥鳴ひまり」の音声があれば、それで読む（無料・だれでも同じ声）
+  tts: { engine: 'device', model: 'himari', voice: 'normal', premade: true },
   voice: 'male',
   voiceURI: '', // 「声をくわしく選ぶ」で選んだ端末の声
   rate: 1,
@@ -528,18 +529,7 @@ function renderVoicePicker() {
       : 'もっと聞きやすくするには：iPhone は「設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 日本語」で「拡張」や「プレミアム」の声をダウンロードしてください（Siri の声も選べます）。パソコンは Microsoft Edge を使うと自然な「Nanami」「Keita」の声が使えます。';
 }
 
-function speechText(sec, it) {
-  const who = '';
-  const from = it.region ? `${it.region}発信。` : '';
-  const parts = [`${sec.title}。${who}${from}`, it.title + '。'];
-  if (it.summary) parts.push(it.summary);
-  if (it.detail) parts.push(it.detail);
-  if (it.world) parts.push('世界から見ると、' + it.world);
-  return parts.join('\n')
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '')
-    .replace(/[★☆]+/g, (m) => `星${(m.match(/★/g) || []).length}つ。`)
-    .replace(/〜/g, 'から').replace(/…/g, '、').replace(/[「」『』（）()“”]/g, ' ').replace(/[＝=]/g, 'イコール');
-}
+const speechText = (sec, it) => KurageSpeech.speechText(sec, it); // 中身は speech.js
 function splitChunks(text, max = 120) {
   const out = [];
   let buf = '';
@@ -603,7 +593,33 @@ const vv = {
     }
     return p;
   },
-  stop() { try { if (this.audio) { this.audio.onended = null; this.audio.pause(); } } catch { /* なにもしない */ } },
+  stop() { try { if (this.audio) { this.audio.onended = null; this.audio.onerror = null; this.audio.pause(); } } catch { /* なにもしない */ } },
+};
+
+// ---------- 毎朝作っておいた「冥鳴ひまり」の音声 ----------
+// ニュースの更新のときに GitHub が VOICEVOX で作って、このアプリと同じ場所（audio/）に置きます。
+// 料金はかかりません。天気・占い・地元のニュースなど端末ごとにちがう記事は、ここにはありません。
+const premade = {
+  files: new Set(),
+  date: '',
+  credit: '',
+  failed: false,
+  async load() {
+    try {
+      const r = await fetch('audio/manifest.json', { cache: 'no-cache' });
+      if (!r.ok) return;
+      const m = await r.json();
+      this.files = new Set(m.files || []);
+      this.date = m.date || '';
+      this.credit = m.credit || '';
+    } catch { /* 音声がなくても端末の声で読む */ }
+  },
+  enabled() { return state.tts.premade !== false && !this.failed && this.files.size > 0; },
+  urlFor(text) {
+    if (!this.enabled()) return '';
+    const name = `${KurageSpeech.textKey(text)}.mp3`;
+    return this.files.has(name) ? `audio/${name}` : '';
+  },
 };
 
 // iPhone などでは、ページが「音を再生中」になると、ほかのアプリの音楽が止まります。
@@ -686,13 +702,15 @@ const player = {
   },
   prepare() {
     const p = playlist[this.idx];
-    this.chunks = p ? splitChunks(speechText(p.sec, p.it), chunkMax()) : [];
+    const text = p ? speechText(p.sec, p.it) : '';
+    this.file = text ? premade.urlFor(text) : '';
+    this.chunks = !text ? [] : this.file ? [text] : splitChunks(text, chunkMax());
   },
   start() {
-    if (!synth && !vv.enabled()) { alert('このブラウザは音声読み上げに対応していません。'); return; }
+    if (!synth && !vv.enabled() && !premade.enabled()) { alert('このブラウザは音声読み上げに対応していません。'); return; }
     if (!playlist.length) return;
     this.playing = true;
-    if (vv.enabled()) vv.unlock();
+    if (vv.enabled() || premade.enabled()) vv.unlock();
     audioFocus.start();
     updatePlayerUI();
     this.highlight(true);
@@ -704,6 +722,7 @@ const player = {
     const my = ++this.token;
     if (!this.playing || state.muted) return;
     if (this.chunk >= this.chunks.length) { this.next(true); return; }
+    if (this.file) { this.speakFile(my); return; }
     if (vv.enabled()) { this.speakVV(my); return; }
     if (!synth) return;
     const u = new SpeechSynthesisUtterance(this.chunks[this.chunk]);
@@ -723,6 +742,35 @@ const player = {
       this.speak();
     };
     synth.speak(u);
+  },
+  // 作っておいた音声ファイルを流す（一時停止したところから続ける）
+  speakFile(my) {
+    const a = vv.el();
+    const url = new URL(this.file, location.href).href;
+    const resume = a.src === url && a.currentTime > 0 && !a.ended;
+    if (!resume) a.src = url;
+    a.playbackRate = Math.max(0.5, Math.min(2, state.rate));
+    a.onended = () => {
+      if (my !== this.token || !this.playing) return;
+      this.chunk++;
+      setTimeout(() => { if (my === this.token && this.playing) this.speak(); }, 500);
+    };
+    a.onerror = () => this.fileFailed(my, new Error('音声ファイルを読めませんでした'));
+    a.play().catch((err) => this.fileFailed(my, err));
+    // 次の記事の音声を先に読み込んでおく
+    const nextP = playlist[this.idx + 1];
+    const nextUrl = nextP && premade.urlFor(speechText(nextP.sec, nextP.it));
+    if (nextUrl) fetch(nextUrl).catch(() => {});
+  },
+  fileFailed(my, err) {
+    if (my !== this.token || err?.name === 'AbortError') return;
+    vv.el().onerror = null;
+    premade.failed = true; // この後は、さくら（設定していれば）か端末の声で読む
+    console.error(err);
+    $('nowReading').textContent = `⚠️ 冥鳴ひまりの音声を流せなかったので、ほかの声で読みます（${err.message || err}）`;
+    this.prepare();
+    this.chunk = 0;
+    this.speak();
   },
   speakVV(my) {
     const text = this.chunks[this.chunk];
@@ -786,7 +834,11 @@ const player = {
     document.querySelectorAll('.news-card.reading').forEach((c) => c.classList.remove('reading'));
     $('nowReading').textContent = '▶ を押すか、記事をタップすると読み上げます';
   },
-  restartChunk() { if (this.playing) this.speak(); },
+  restartChunk() {
+    if (!this.playing) return;
+    if (this.file) { try { vv.el().playbackRate = Math.max(0.5, Math.min(2, state.rate)); } catch { /* なにもしない */ } return; }
+    this.speak();
+  },
   highlight(scroll = false) {
     document.querySelectorAll('.news-card.reading').forEach((c) => c.classList.remove('reading'));
     const p = playlist[this.idx];
@@ -972,6 +1024,10 @@ function openSettings(focusBirth = false) {
   $('wxQuery').value = state.weather.name || '';
   $('wxPick').hidden = true;
   $('wxNow').textContent = state.weather.name ? `いまの地域：${state.weather.name}` : 'まだ選ばれていません。';
+  $('preOn').checked = state.tts.premade !== false;
+  $('preNote').textContent = premade.files.size
+    ? `✅ ${jpDate(premade.date)}のニュース ${premade.files.size} 本ぶんの音声があります。`
+    : 'まだ今日の音声がありません（毎朝のニュース更新のあと、しばらくするとできます）。';
   $('vvOn').checked = state.tts.engine === 'sakura';
   $('vvToken').value = getVvToken();
   $('vvModel').value = state.tts.model || '';
@@ -1003,9 +1059,12 @@ function renderToggles() {
 function renderCredit() {
   const el = $('vvCredit');
   if (!el) return;
-  const on = state.tts.engine === 'sakura' && !!getVvToken();
-  el.hidden = !on;
-  el.textContent = on ? `🎙 読み上げ：VOICEVOX:${/himari|ひまり/i.test(state.tts.model) ? '冥鳴ひまり' : state.tts.model}（さくらのAI Engine）` : '';
+  const sakura = state.tts.engine === 'sakura' && !!getVvToken();
+  const lines = [];
+  if (premade.enabled()) lines.push(`🎙 ニュースの読み上げ：${premade.credit || 'VOICEVOX:冥鳴ひまり'}`);
+  if (sakura) lines.push(`🎙 ${premade.enabled() ? 'そのほかの' : ''}読み上げ：VOICEVOX:${/himari|ひまり/i.test(state.tts.model) ? '冥鳴ひまり' : state.tts.model}（さくらのAI Engine）`);
+  el.hidden = !lines.length;
+  el.textContent = lines.join('\n');
 }
 
 function renderIndexNote() {
@@ -1090,18 +1149,19 @@ function setupSettings() {
   });
   // 🎙 VOICEVOX の声
   const saveVv = () => {
-    state.tts = { engine: $('vvOn').checked ? 'sakura' : 'device', model: $('vvModel').value.trim() || 'himari', voice: $('vvVoice').value.trim() || 'normal' };
+    state.tts = { premade: $('preOn').checked, engine: $('vvOn').checked ? 'sakura' : 'device', model: $('vvModel').value.trim() || 'himari', voice: $('vvVoice').value.trim() || 'normal' };
     try {
       if ($('vvToken').value.trim()) localStorage.setItem(VV_TOKEN_KEY, $('vvToken').value.trim());
       else localStorage.removeItem(VV_TOKEN_KEY);
     } catch { /* 保存できない環境 */ }
     vv.failed = false;
+    premade.failed = false;
     vv.cache.clear();
     save();
     renderCredit();
     player.prepare();
   };
-  ['vvOn', 'vvToken', 'vvModel', 'vvVoice'].forEach((id) => $(id).addEventListener('change', saveVv));
+  ['preOn', 'vvOn', 'vvToken', 'vvModel', 'vvVoice'].forEach((id) => $(id).addEventListener('change', saveVv));
   $('btnVvTest').addEventListener('click', async () => {
     saveVv();
     const st = $('vvStatus');
@@ -1187,6 +1247,7 @@ function init() {
   renderIndexNote();
   renderCredit();
   player.prepare();
+  premade.load().then(() => { renderCredit(); if (!player.playing) player.prepare(); });
   setupEdgeKurage();
   setupKurageActors();
   // 日付が変わったら、占い・節気を今日の内容に
