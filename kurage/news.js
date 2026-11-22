@@ -7,47 +7,47 @@
 // 「四季と暦」は、節気と旬をアプリが自動で足すので、ここには季節のニュースを1件だけ入れます。
 // =============================================================
 window.KURAGE_NEWS = {
-  "date": "2026-11-22",
+  "date": "2026-11-23",
   "sections": {
     "today": [
       {
-        "region": "日本",
-        "telop": "藤井竜王 6連覇",
-        "title": "将棋の竜王戦、藤井聡太竜王が4連勝で防衛し、6連覇",
-        "summary": "宮崎県都城市で指された第4局で、挑戦者の服部慎一郎七段を94手で破りました。六冠を守り、今年のタイトル戦をすべて終えました。次は来年1月に始まる王将戦です。",
-        "detail": "竜王戦は、将棋のタイトルの中でも賞金がいちばん高いといわれる大きな戦いです。七番勝負で先に4勝したほうが竜王になります。",
+        "region": "世界",
+        "telop": "COP31 合意できず閉幕",
+        "title": "国連の気候会議COP31、成果文書を採択できずに閉幕",
+        "summary": "化石燃料からの脱却について書かれていない草案に、EUなどが反対しました。全会一致の合意なしで終わるのは、2009年のCOP15以来の異例の事態です。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79696"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261122de79933"
           },
           {
-            "name": "Yahoo!ニュース（共同通信）",
-            "url": "https://news.yahoo.co.jp/articles/036ed98b5dbf4f54c886cbf3b841577d638f0b3a"
+            "name": "時事ドットコム",
+            "url": "https://www.jiji.com/jc/article?k=2026112200245&g=soc&m=rss"
           }
         ]
       },
       {
-        "region": "世界",
-        "telop": "ウクライナに大規模攻撃",
-        "title": "ウクライナ「ロシアから最大規模の攻撃。8人死亡、およそ30人けが」",
-        "summary": "ゼレンスキー大統領が発表し、各国に防空の支援を急ぐよう求めました。",
+        "region": "日本",
+        "telop": "印旛沼 決壊から2か月",
+        "title": "千葉・印旛沼の堤防決壊から2か月。田んぼの復旧が進まず、来年のコメ作りに影響",
+        "summary": "9月の台風の大雨で、管理が始まってから初めて堤防が決壊しました。被災した田んぼでは、来年に向けた準備を始められないところがあります。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79482"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261122de79991"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "COP31 会期を延長",
-        "title": "国連の気候会議COP31、化石燃料をめぐって対立し、会期を延長",
-        "summary": "トルコで開かれている会議は20日に終わる予定でしたが、石油などの化石燃料について合意の文章にどう書くかで各国が対立し、話し合いが続いています。",
+        "telop": "リーマン予想 AIと解いた？",
+        "title": "数学の大難問「リーマン予想」を、AIと一緒に解いたと数学者が発表",
+        "summary": "AnthropicのAI「Claude」と共同で証明を見つけたと発表したと伝えられています。証明が正しいかどうかは、ほかの数学者がくわしく確かめる必要があります。",
+        "detail": "リーマン予想は、素数（1とその数でしか割り切れない数）の並び方にかかわる160年以上解かれていない問題で、解いた人には100万ドルの賞金がかけられています。",
         "sources": [
           {
-            "name": "Al Jazeera",
-            "url": "https://www.aljazeera.com/news/2026/11/20/fossil-fuel-talks-deadlock-pushes-cop31-climate-summit-into-overtime"
+            "name": "ナゾロジー",
+            "url": "https://nazology.kusuguru.co.jp/archives/210450"
           }
         ]
       }
@@ -55,45 +55,41 @@ window.KURAGE_NEWS = {
     "ishikawa": [
       {
         "region": "日本",
-        "telop": "9地点で今季いちばんの寒さ",
-        "title": "今年最後の3連休初日、石川県内9地点で今季いちばんの冷えこみ",
-        "summary": "金沢は最低3.7度、最高8.9度でした。雨の中、兼六園を散策する人の姿もありました。",
-        "sources": [
-          {
-            "name": "北國新聞",
-            "url": "https://www.hokkoku.co.jp/articles/-/2298129"
-          }
-        ]
-      },
-      {
-        "region": "日本",
-        "telop": "能登に竜巻注意",
-        "title": "21日、能登地方に竜巻注意の速報。加賀・能登とも高波に警戒",
-        "summary": "発達した雨雲が近づくと突風が吹くおそれがあるとして、気象庁が発表しました。波の高さは5メートルの予想と伝えられました。",
+        "telop": "志賀原発で防災訓練",
+        "title": "志賀原発の重大事故を想定した原子力防災訓練。住民が避難の方法を確認",
+        "summary": "志賀町で震度7の地震が起き、外部の電源がすべて失われたという想定です。およそ240の機関が参加し、今年は渋滞を減らすため避難の道を分ける手順も加えました。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79639"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261122de79999"
           },
           {
             "name": "Yahoo!ニュース（テレビ金沢）",
-            "url": "https://news.yahoo.co.jp/articles/8372930ea718776f07f59b1d8dcc7c7bf6c3bf43"
+            "url": "https://news.yahoo.co.jp/articles/4ba8e5c1cf430b80b1e3b214236521792a4ad05a"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "復興プラン 3割見直し",
-        "title": "能登の「創造的復興プラン」、273の取り組みのおよそ3割を見直しへ",
-        "summary": "県議会からは「抜本的な施策をしないと能登はなくなる」と注文が出ました。県は年内にもプランを改める予定です。",
+        "telop": "香林坊大和に「たねや」",
+        "title": "香林坊大和の地下1階に、和菓子の「たねや」の期間限定店",
+        "summary": "季節限定の「栗月下」や、もなかの「ふくみ天平」などが並びます。「とらや」の限定店と同時に、来年1月5日まで営業します。",
+        "sources": [
+          {
+            "name": "北國新聞",
+            "url": "https://www.hokkoku.co.jp/articles/-/2298626"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "寒さで転倒 けがに注意",
+        "title": "寒気が強まって大荒れの天気。金沢市で80代の女性が転んで大けが",
+        "summary": "山では雪も積もりました。冷えこむ朝は、足もとの凍結に気をつけましょう。",
         "sources": [
           {
             "name": "Yahoo!ニュース（MRO北陸放送）",
-            "url": "https://news.yahoo.co.jp/articles/8aed78f35ab127f07d8da2416357ed5ce0a178af"
-          },
-          {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261111de73948"
+            "url": "https://news.yahoo.co.jp/articles/caa8495023b05ab5866e909b8d0be54826c9a9cc"
           }
         ]
       }
@@ -101,37 +97,37 @@ window.KURAGE_NEWS = {
     "kosodate": [
       {
         "region": "日本",
-        "telop": "虐待 全国で緊急点検",
-        "title": "こども家庭庁、児童相談所と市区町村の連携を全国で緊急点検",
-        "summary": "大阪府枚方市や兵庫県伊丹市で子どもが亡くなる虐待事件が続いたことを受けたものです。保育所や病院からの知らせも含めて、危険を見落とさず情報を共有するよう求めました。",
+        "telop": "病児保育を増やしたい",
+        "title": "東京都、病気の子どもを預かる「病児保育」を増やすため、施設への支援を強化へ",
+        "summary": "採算が合いにくいことや、人の配置がむずかしいことが課題になっています。",
         "sources": [
           {
-            "name": "時事ドットコム",
-            "url": "https://jiji.com/jc/article?g=pol&k=2026112000719&m=rss"
+            "name": "NHK",
+            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79474"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "RSウイルス 定期接種を検討",
-        "title": "赤ちゃんのRSウイルス対策、抗体の薬を定期接種にする検討",
-        "summary": "厚生労働省が議論のまとめを出しました。これから専門の会議で話し合われる見通しです。",
+        "telop": "里親の研修に手当",
+        "title": "大阪府泉佐野市、里親になるための研修に参加した家庭に手当を出す方向",
+        "summary": "1回1万円から1万5千円ほどで調整しています。「赤ちゃんポスト」の運用を目指す取り組みの一つと報じられています。",
         "sources": [
           {
-            "name": "リセマム",
-            "url": "https://resemom.jp/article/2026/11/20/88394.html"
+            "name": "Yahoo!ニュース（共同通信）",
+            "url": "https://news.yahoo.co.jp/articles/95ee1f683c9768d3f91f3397bec0fa6b7dc85339"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "SNS 年齢ごとの目安",
-        "title": "子どものSNS利用、こども家庭庁が年齢に合わせた親の関わり方の目安",
-        "summary": "6〜9歳はルールの理由を説明して子どもの意見を聞く、10〜12歳は家のルールづくりに子どもの意見を取り入れる、などとしています。最終的な報告は12月をめどにまとめます。",
+        "telop": "12月の児童手当は2か月分",
+        "title": "12月の児童手当は、10月分と11月分がまとめて振り込まれます",
+        "summary": "市区町村によっては、保育料などが差し引かれることもあります。",
         "sources": [
           {
-            "name": "リセマム",
-            "url": "https://resemom.jp/article/2026/11/11/88269.html"
+            "name": "Yahoo!ニュース（LIMO）",
+            "url": "https://news.yahoo.co.jp/articles/9c7b8d17dd3e50f1e8dc5ddc0ea5135d0fdbbb69"
           }
         ]
       }
@@ -139,36 +135,36 @@ window.KURAGE_NEWS = {
     "kids": [
       {
         "region": "日本",
-        "telop": "女性初の「棋士」",
-        "title": "西山朋佳さん、将棋で女性初の「棋士」に",
-        "summary": "「棋士」は「女流棋士」とは別の資格で、これまで女性はいませんでした。子ども向けの新聞でも、そのちがいが紹介されました。",
-        "sources": [
-          {
-            "name": "学研キッズネット（朝日小学生新聞）",
-            "url": "https://kids.gakken.co.jp/news/"
-          }
-        ]
-      },
-      {
-        "region": "日本",
-        "telop": "国会でもタブレット",
-        "title": "衆議院の本会議で、スマホやタブレットが使えるように",
-        "summary": "これまで本会議の場では使えませんでした。子ども向けにやさしく書いた新聞で紹介されました。",
+        "telop": "Suicaの新キャラはウサギ",
+        "title": "交通系ICカード「Suica」の新しいキャラクターは、ウサギがモデルに",
+        "summary": "JR東日本が18日に発表しました。",
         "sources": [
           {
             "name": "学研キッズネット（やさしい朝日新聞）",
-            "url": "https://kids.gakken.co.jp/news/"
+            "url": "https://kids.gakken.co.jp/news/113517/"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "ネットで自分を守る",
-        "title": "サイバー攻撃で個人情報の流出があいつぐ。子どもにできることは？",
-        "summary": "子どもにもできる、身の守り方が紹介されています。",
+        "telop": "「藪の中」の原稿",
+        "title": "芥川龍之介の小説「藪の中」、最初はちがうタイトルと結末だった",
+        "summary": "見つかった原稿から、題名やお話の終わり方がいまとちがっていたことがわかりました。",
         "sources": [
           {
-            "name": "学研キッズネット（朝日小学生新聞）",
+            "name": "学研キッズネット（やさしい朝日新聞）",
+            "url": "https://kids.gakken.co.jp/news/113215/"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "ネットの使い方 新しい目安",
+        "title": "こども家庭庁が、子どものインターネットの使い方の新しい目安を発表",
+        "summary": "年齢に合わせて、家族でルールを話し合うことが大切だとしています。",
+        "sources": [
+          {
+            "name": "学研キッズネット（やさしい朝日新聞）",
             "url": "https://kids.gakken.co.jp/news/"
           }
         ]
@@ -177,136 +173,120 @@ window.KURAGE_NEWS = {
     "sports": [
       {
         "region": "日本",
-        "telop": "今日 千秋楽 優勝は？",
-        "title": "大相撲九州場所、大の里と若元春が12勝2敗で並び、今日千秋楽",
-        "summary": "横綱・大の里は金峰山を寄り切り、若元春は大関・安青錦を寄り倒しました。3敗の熱海富士が1差で追います。大の里は結びで豊昇龍と対戦します。",
-        "detail": "2人とも勝つか2人とも負けると、決着は「優勝決定戦」へ。2人とも負けて熱海富士が勝つと、3人で戦う「ともえ戦」になります。大の里は豊昇龍に、これまで2勝9敗と苦手にしています。",
+        "telop": "大の里 2場所連続優勝",
+        "title": "大相撲九州場所、横綱・大の里が優勝決定戦で若元春を破り、2場所連続7回目の優勝",
+        "summary": "結びで豊昇龍を押し出し、決定戦では渡し込みで勝ちました。九州場所では初めての優勝で、「来年は全勝優勝を」と話しました。",
+        "detail": "7回の優勝は、昔の名横綱・羽黒山と同じ回数です。決定戦の「渡し込み」は、相手の足を手ですくうようにして倒す技です。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79717"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261122de80055"
           },
           {
-            "name": "Yahoo!ニュース（スポーツ報知）",
-            "url": "https://news.yahoo.co.jp/articles/89f728239a79ec7d213234c21e0ce49b38b8ac31"
+            "name": "Yahoo!ニュース（共同通信）",
+            "url": "https://news.yahoo.co.jp/articles/276c1c2e708063a175a1c64242bd5659d81d1769"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "島田麻央 GPファイナルへ",
-        "title": "フィギュア、18歳の島田麻央がグランプリ2連勝。12月のファイナル進出",
-        "summary": "フィンランド大会で合計229.49点で優勝しました。シニア1年目のGP2連勝は、日本の女子では紀平梨花さん以来2人目です。今季のGPは日本の女子が5戦全勝です。",
-        "detail": "島田選手は、むずかしいジャンプのトリプルアクセル（3回転半）と4回転を跳べるのが強み。GPファイナルは、6つの大会の成績上位6人だけが出られる大会です。",
+        "telop": "FC東京 首位で抜け出す",
+        "title": "サッカーJ1、FC東京がセレッソ大阪に3対0で勝ち、2位と勝ち点5差",
+        "summary": "2位から7位のチームがそろって勝てず、FC東京が一歩抜け出しました。",
+        "detail": "勝ちは勝ち点3、引き分けは1。シーズンを通して勝ち点がいちばん多いチームが優勝です。",
         "sources": [
           {
-            "name": "時事ドットコム",
-            "url": "https://www.jiji.com/jc/article?k=2026112100483&g=spo&m=rss"
-          },
-          {
-            "name": "Yahoo!ニュース（共同通信）",
-            "url": "https://news.yahoo.co.jp/articles/8665e8dc3dab20f4c135bc6ebbf8735f10fe99e3"
+            "name": "Yahoo!ニュース（フットボールチャンネル）",
+            "url": "https://news.yahoo.co.jp/articles/334f5167fe9569f21304886c230e14c9b5bbe03d"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "ラグビー 2試合続けて大敗",
-        "title": "ラグビー日本代表、スコットランドに5対67で大敗",
-        "summary": "イングランド戦に続いて2試合続けて60点以上を取られ、今大会は1勝5敗です。最終戦は27日から29日にイギリスで行われる順位決定戦です。",
-        "detail": "ラグビーはボールを持って走り、相手のゴールラインの向こうにボールをつける「トライ」で5点。スコットランドは強豪の一つで、エディー・ジョーンズ監督は「きつい時期だと自覚している」と話しました。",
+        "telop": "27日からNHK杯",
+        "title": "フィギュアのNHK杯が27日開幕。日本女子はGP6戦全勝なるか",
+        "summary": "今季のGPは日本女子が5戦全勝です。NHK杯には千葉百音選手、青木祐奈選手らが出場します。",
+        "detail": "GPシリーズは6つの大会があり、NHK杯はその最後の大会。成績上位6人が12月のファイナルに進みます。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（共同通信）",
-            "url": "https://news.yahoo.co.jp/articles/0b35ba0c386f242daedc513499cd73e8423a6e17"
-          },
-          {
-            "name": "Yahoo!ニュース（スポーツ報知）",
-            "url": "https://news.yahoo.co.jp/articles/537574cafb7c28e8f3eb65fe0c6dee2effa9d1bc"
+            "name": "Yahoo!ニュース（スポニチ）",
+            "url": "https://news.yahoo.co.jp/articles/749a227fde62f39259ebdf48393516a755f5f6bf"
           }
         ]
       }
     ],
     "music": [
       {
-        "region": "世界",
-        "telop": "MAMA 大賞はBTS",
-        "title": "大阪で開かれたK-POPの授賞式「MAMA」、BTSとENHYPENが大賞",
-        "summary": "京セラドーム大阪で2日間開かれました。ENHYPENはファンが選ぶ大賞を受け、メンバーが涙を見せました。BIGBANGも賞を受けました。",
+        "region": "日本",
+        "telop": "ミスチル 来年ドームツアー",
+        "title": "Mr.Children、来年ドームとスタジアムのツアー。全国6会場で12公演",
+        "summary": "22日に発表されました。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（オリコン）",
-            "url": "https://news.yahoo.co.jp/articles/3cb5725c2a165fde68e4b21e88c83bc312d8f133"
-          },
-          {
-            "name": "Yahoo!ニュース（Kstyle）",
-            "url": "https://news.yahoo.co.jp/articles/cdad6d57cfbbad98f0ecb0096491469abaa2e5c2"
+            "name": "音楽ナタリー",
+            "url": "https://natalie.mu/music/news/699205"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "INI 京セラドームで受賞",
-        "title": "INIが「MAMA」でアジアの人気グループ賞",
-        "summary": "日本のグループのINIが「FAVORITE ASIAN GROUP」を受け、「これからも僕たち11人といい思い出を」と話しました。",
+        "telop": "さんタク 25年目も",
+        "title": "明石家さんまさんと木村拓哉さんの正月番組「さんタク」、25年目も放送",
+        "summary": "22日の木村さんのライブ千葉公演にさんまさんが登場した様子も放送されます。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（オリコン）",
-            "url": "https://news.yahoo.co.jp/articles/ae1614f406b8fb5419a1dadb7cb11e1bb24ea6ac"
+            "name": "音楽ナタリー",
+            "url": "https://natalie.mu/music/news/699204"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "RAPSTAR 8人が決定",
-        "title": "ラップのオーディション「RAPSTAR 2026」、次のステージに進む8人が決定",
-        "summary": "21日に最新回が配信され、課題曲12曲も配信が始まりました。",
+        "telop": "長崎「BRIDGE」スタジアムへ",
+        "title": "長崎の音楽イベント「BRIDGE」、初めてスタジアムで開催",
+        "summary": "第1弾の出演者として、KohjiyaさんとTeteさんが発表されました。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（音楽ナタリー）",
-            "url": "https://news.yahoo.co.jp/articles/5fe677c45b04f8fb458aa4866c18d249185826f4"
+            "name": "音楽ナタリー",
+            "url": "https://natalie.mu/music/news/699201"
           }
         ]
       }
     ],
     "science": [
       {
-        "region": "日本",
-        "telop": "H3 打ち上げを民間へ",
-        "title": "H3ロケットの打ち上げ、来年1月の11号機から三菱重工業に",
-        "summary": "これまでJAXAが行っていた打ち上げを、民間の会社が受け持ちます。費用を下げ、海外の衛星の打ち上げの注文を取ることがねらいです。11号機は来年1月11日に種子島から打ち上げる予定です。",
+        "region": "世界",
+        "telop": "131歳の魚",
+        "title": "明治時代から川を泳ぎ続けた？ 131歳と推定される魚が見つかる",
+        "summary": "アメリカ・モンタナ州のミズーリ川で、ブルーサッカーという淡水魚に、最長で131歳と推定される個体がいました。",
         "sources": [
           {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261120de78738"
-          },
-          {
-            "name": "日本経済新聞",
-            "url": "https://www.nikkei.com/article/DGXZQOSG202HS0Q6A121C2000000/"
+            "name": "ナゾロジー",
+            "url": "https://nazology.kusuguru.co.jp/archives/210480"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "放射線の帯が4本に",
-        "title": "地球をとりまく放射線の帯が、観測で初めて4本に分かれていた",
-        "summary": "2024年5月の大きな磁気嵐のあと、ふだんは2本の帯が4本に分かれていたことがわかりました。人工衛星を守る研究に役立ちます。",
+        "telop": "いちばん小さな宇宙",
+        "title": "世界最大の実験装置で、人類が見た中でいちばん小さな「ゼプト宇宙」を観測",
+        "summary": "スイスなどにある巨大な加速器LHCを使った研究です。ゼプトは、10億分の1のさらに1兆分の1という、とても小さな単位です。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210140"
+            "url": "https://nazology.kusuguru.co.jp/archives/210384"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "オスのハチも子育て",
-        "title": "オスのマルハナバチ、卵や幼虫を温めて巣を育てていた",
-        "summary": "これまでオスは交尾だけをすると思われていましたが、体の熱で子を温めていることが観察されました。",
+        "telop": "細菌で動くコンピューター",
+        "title": "泳ぐ細菌で計算するコンピューター。細菌が増えるほど計算の力もアップ",
+        "summary": "泳ぎながら分かれて増える細菌に計算をまかせ、数字の組み合わせを探す問題を解く装置がつくられました。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210214"
+            "url": "https://nazology.kusuguru.co.jp/archives/210510"
           }
         ]
       }
@@ -314,40 +294,40 @@ window.KURAGE_NEWS = {
     "anatomy": [
       {
         "region": "世界",
-        "telop": "冬に「冬眠」する女性",
-        "title": "冬になると冬眠のような状態を30年くり返した女性。脳の体温を調節する仕組みに手がかり",
-        "summary": "体温を調節するホルモンをつくる脳の細胞はあるのに、そのホルモンがほとんど見えなかったと報告されています。",
-        "detail": "体温は、脳の奥にある「視床下部（ししょうかぶ）」が決めています。エアコンの設定温度のように、ちょうどいい体温を保つ司令塔です。",
+        "telop": "妊娠は栄養の取り合い",
+        "title": "妊娠は、お母さんと赤ちゃんの「栄養の取り合い」だったことを魚で確かめた",
+        "summary": "お腹の中で子を育てる魚を調べ、親と子が栄養を取り合う関係があることが裏付けられたと伝えられています。",
+        "detail": "人では「胎盤（たいばん）」が、お母さんの血液から赤ちゃんへ栄養や酸素を渡す役目をしています。胎盤は赤ちゃんと一緒にできて、出産のあとに外に出てきます。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210174"
+            "url": "https://nazology.kusuguru.co.jp/archives/209515"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "腸の壁がすばやく治る",
-        "title": "腸の善玉菌がつくる物質が、傷ついた腸の壁の回復を早めると判明",
-        "summary": "細胞の中の「NAD」という物質に注目した研究で、マウスの実験で示されました。",
-        "detail": "腸の内側は、細胞が1列に並んだうすい壁でできています。この壁は数日で入れかわるほど、生まれかわりが早い場所です。",
+        "telop": "赤ちゃんの言葉の覚え方",
+        "title": "1人の子どもが聞いた声だけをAIに聞かせると、言葉の覚え方が見えてきた",
+        "summary": "赤ちゃんの毎日を体験させるような方法で、言葉を覚える仕組みを調べた研究です。",
+        "detail": "言葉を聞いて理解するのは、主に左の脳の横にある「ウェルニッケ野」、話すのは前のほうの「ブローカ野」がかかわるといわれます。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/209628"
+            "url": "https://nazology.kusuguru.co.jp/archives/209438"
           }
         ]
       },
       {
-        "region": "日本",
-        "telop": "受精卵の核はやわらかい",
-        "title": "受精したばかりのマウスの胚では、細胞の「核」が一時的にやわらかくなる",
-        "summary": "国立遺伝学研究所や九州大学のグループが発表しました。核がやわらかくなることが、胚が自分の遺伝子を働かせはじめるのに大事だとしています。",
-        "detail": "核は、細胞の中で遺伝子（DNA）をしまっている部屋です。人の体はおよそ37兆個の細胞でできています。",
+        "region": "世界",
+        "telop": "感情は六角形の地図？",
+        "title": "脳は、感情を「六角形の地図」のように整理しているかもしれない",
+        "summary": "場所を覚えるときと似た仕組みで、気持ちも整理している可能性があるという研究です。",
+        "detail": "脳には、自分がどこにいるかを六角形のマス目のように表す「グリッド細胞」があります。この発見は2014年のノーベル賞になりました。",
         "sources": [
           {
-            "name": "JST",
-            "url": "https://www.jst.go.jp/pr/announce/20261112/index.html"
+            "name": "ナゾロジー",
+            "url": "https://nazology.kusuguru.co.jp/archives/206391"
           }
         ]
       }
@@ -355,37 +335,41 @@ window.KURAGE_NEWS = {
     "phyto": [
       {
         "region": "日本",
-        "telop": "漢方の情報を強化",
-        "title": "漢方の薬、胃腸の不調や眠りの悩みの分野で情報提供を強化",
-        "summary": "医薬品の専門紙の薬事日報が、20日付で伝えました。",
+        "telop": "北海道は生薬の産地",
+        "title": "漢方薬の原料となる生薬、北海道が一大産地に",
+        "summary": "作付け面積は全国2位の3.4倍。若い世代のストレスや冷え症で漢方の需要が増え、大手企業の参入も進んでいると報じられています。",
+        "sources": [
+          {
+            "name": "Yahoo!ニュース（HBC北海道放送）",
+            "url": "https://news.yahoo.co.jp/articles/0b9dacac9eeb8c14c160968af5ca2653f66f82bc"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "受験シーズンと漢方",
+        "title": "受験シーズンの体調管理に漢方を",
+        "summary": "子どもの受験を経験した保護者の多くが、体調管理に気をつかっていたという調査が紹介されています。",
         "sources": [
           {
             "name": "薬事日報",
-            "url": "https://www.yakuji.co.jp/entry141983.html"
+            "url": "https://www.yakuji.co.jp/entry141764.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "ツムラ×薬屋のひとりごと",
-        "title": "ツムラの漢方シリーズと映画「薬屋のひとりごと」がコラボ",
-        "summary": "11月2日からキャンペーンが行われています。",
+        "telop": "ゆず湯 2人に1人",
+        "title": "冬至のゆず湯、2人に1人が入るという調査も。今年の冬至は12月22日",
+        "summary": "ゆず湯は、体を温めて一年の健康を願う昔からの習わしです。",
         "sources": [
           {
-            "name": "ツムラ",
-            "url": "https://www.tsumura.co.jp/news/newsrelease/"
-          }
-        ]
-      },
-      {
-        "region": "日本",
-        "telop": "温めとめぐりの生薬",
-        "title": "日本メディカルハーブ協会が28日に「温めとめぐりの生薬」のオンライン講座",
-        "summary": "寒くなる季節に合わせて、体を温める生薬などを学ぶ講座です。",
-        "sources": [
+            "name": "ウェザーニュース",
+            "url": "https://weathernews.jp/s/topics/201912/210065/"
+          },
           {
-            "name": "日本メディカルハーブ協会",
-            "url": "https://www.medicalherb.or.jp/items/353004"
+            "name": "日本気象協会 tenki.jp",
+            "url": "https://tenki.jp/suppl/k_mochizuki/2024/12/19/32557.html"
           }
         ]
       }
@@ -393,37 +377,37 @@ window.KURAGE_NEWS = {
     "aroma": [
       {
         "region": "日本",
-        "telop": "肌で完成する香水",
-        "title": "肌の香りと合わせて完成する香水ブランド「New Notes」が20日から本格展開",
-        "summary": "香水専門店のNOSE SHOPが、濃い香りの「エキストレドパルファム」8種類を出しました。",
+        "telop": "鉄道林の杉の香り",
+        "title": "JR東日本の鉄道を守ってきた森の杉から、香りのミスト",
+        "summary": "鉄道林の杉の精油を使った「森と、旅と。フォレストミスト」が発売されました。12月に走りはじめる観光列車にも、同じ杉のアロマが置かれます。",
         "sources": [
           {
-            "name": "PR TIMES（NOSE SHOP）",
-            "url": "https://prtimes.jp/main/html/rd/p/000000194.000024774.html"
+            "name": "PR TIMES（グリーディー）",
+            "url": "https://prtimes.jp/main/html/rd/p/000000001.000194309.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "今年の香り アールグレイ",
-        "title": "2026年の香りのトレンドは「アールグレイ＆タイム」",
-        "summary": "香りの会社が予想した今年のキーワードで、静かでぜいたくな時間を楽しむ香りとしています。",
+        "telop": "旅に寄りそう精油",
+        "title": "旅のブランドAwwが、5種類の精油をブレンドしたオリジナルの精油と「香り守り」を発売",
+        "summary": "旅先でも同じ香りで落ち着けるようにという商品です。",
         "sources": [
           {
-            "name": "プロモツール",
-            "url": "https://www.promotool.jp/251126-1/"
+            "name": "PR TIMES（Aww）",
+            "url": "https://prtimes.jp/main/html/rd/p/000000070.000057888.html"
           }
         ]
       },
       {
-        "region": "世界",
-        "telop": "11月の新作香水",
-        "title": "11月はシスレーやバーバリーなど、新作の香水が続々",
-        "summary": "ホリデーシーズンに向けて、新しい香りの発売が続いています。",
+        "region": "日本",
+        "telop": "精油の香りで手もとケア",
+        "title": "THREEの精油科学から、ハンドケアの新しい香りとディフューザー",
+        "summary": "乾燥する季節に向けて、植物の精油を使った手肌と空間のケア商品が出ました。",
         "sources": [
           {
-            "name": "LIPS",
-            "url": "https://lipscosme.com/cosmetic_calendar/categories/212"
+            "name": "PR TIMES（ACRO）",
+            "url": "https://prtimes.jp/main/html/rd/p/000000140.000074010.html"
           }
         ]
       }
@@ -431,37 +415,37 @@ window.KURAGE_NEWS = {
     "realestate": [
       {
         "region": "日本",
-        "telop": "家賃 28年ぶりの上昇率",
-        "title": "民営の家賃、9月は全国で0.8%上昇。およそ28年ぶりの上昇率",
-        "summary": "東京23区は2.2%の上昇でした。平均的な家賃で2年住むと、23区では約5万円負担が増える計算です。",
+        "telop": "単身向け家賃 全地域で上昇",
+        "title": "単身者向けマンションの家賃、調べた全13地域で前の年を上回る",
+        "summary": "東京23区は9.7%高い11万4460円で、2か月続けて過去最高です。費用の上昇や、募集する部屋の減少が背景です。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（LIMO）",
-            "url": "https://news.yahoo.co.jp/articles/8d3463fd4704f8be693c5bf86f4478e64c4003dd"
+            "name": "Yahoo!ニュース（共同通信）",
+            "url": "https://news.yahoo.co.jp/articles/fa416b4e8a8d904551b3775f2e381ad73a4fa622"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "単身向け家賃 最高値",
-        "title": "東京23区の単身向けマンションの家賃、9月も最高値を更新",
-        "summary": "ただし上がり方はゆるやかになっていて、高すぎる物件は借り手がつきにくいという声も出ています。",
+        "telop": "首都圏 新築マンション最少",
+        "title": "首都圏の新築マンション、10月の発売は24%減。10月として過去最少",
+        "summary": "発売してすぐ売れた割合も48%と、7年ぶりに50%を下回りました。",
         "sources": [
           {
             "name": "日本経済新聞",
-            "url": "https://www.nikkei.com/article/DGXZQOUB2503W0V21C26A0000000/"
+            "url": "https://www.nikkei.com/article/DGXZQOUC193RL0Z11C26A1000000/"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "家賃は自由に上げられない",
-        "title": "オーナーが知っておきたい「家賃の値上げ」の基本",
-        "summary": "借りている人が値上げに同意しないときは、オーナーは「賃料増額請求」という手続きが必要です。一方的には決められません。",
+        "telop": "近畿も過去最低",
+        "title": "近畿の新築マンション、10月の発売は803戸で過去最低",
+        "summary": "価格の上がりすぎで、売る側も慎重になっています。",
         "sources": [
           {
-            "name": "健美家",
-            "url": "https://www.kenbiya.com/ar/ns/jiji/legal_knowledge/9934.html"
+            "name": "日本経済新聞",
+            "url": "https://www.nikkei.com/article/DGXZQOUF1964Q0Z11C26A1000000/"
           }
         ]
       }
@@ -469,37 +453,37 @@ window.KURAGE_NEWS = {
     "nutrition": [
       {
         "region": "世界",
-        "telop": "ケトン体と炎症",
-        "title": "糖質をひかえると増える「ケトン体」に、体の炎症をおさえる働きの可能性",
-        "summary": "これまでの研究をまとめた総説で、11月の学術誌に載りました。動物や細胞の研究が中心で、人での効果はまだ確かめる段階です（エビデンスは中くらい以下）。",
+        "telop": "ケトン食にも落とし穴",
+        "title": "健康に良いと思われがちなケトン食、やり方しだいで炎症を招くことも",
+        "summary": "マウスの実験で、ショートニングでつくったケトン食では、心臓や腎臓に炎症を起こす細胞がたまりました。脂の種類が大事なようです（動物実験の段階）。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/205927"
+            "url": "https://nazology.kusuguru.co.jp/archives/209568"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "長生きの方法の共通点",
-        "title": "寿命をのばす5つの方法には、代謝の変化に共通点があった",
-        "summary": "アメリカのミシガン大学などがマウスで調べ、11月の学術誌に発表しました。人にそのまま当てはまるかはまだわかりません（動物実験の段階）。",
+        "telop": "体の年齢とサプリ",
+        "title": "体の年齢を下げたのは薬と生活習慣。調べた市販サプリでは、はっきりした効果は出ず",
+        "summary": "アメリカのエール大学の研究で、血液から測る「体の年齢」を調べました（人のデータを使った研究ですが、調べたサプリは一部です）。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/208452"
+            "url": "https://nazology.kusuguru.co.jp/archives/209390"
           }
         ]
       },
       {
-        "region": "世界",
-        "telop": "ビタミンDとマグネシウム",
-        "title": "ビタミンDを活かすにはマグネシウムが欠かせない",
-        "summary": "マグネシウムは、ビタミンDを体の中で働く形に変えるのに必要です。2026年の総説でも整理されています（しくみはよく知られていますが、サプリでの効果は研究が続いています）。",
+        "region": "日本",
+        "telop": "ゆずの栄養",
+        "title": "冬においしいゆずは、ビタミンCが豊富",
+        "summary": "果汁より皮のほうにビタミンCが多いといわれます。料理に皮を少し加えるのもおすすめです（栄養の量はよく知られた事実です）。",
         "sources": [
           {
-            "name": "Drexel University（総説）",
-            "url": "https://researchdiscovery.drexel.edu/esploro/outputs/journalArticle/Role-of-Magnesium-in-Vitamin-D/991022200957804721"
+            "name": "Yahoo!ニュース（ヨガジャーナルオンライン）",
+            "url": "https://news.yahoo.co.jp/articles/37a80ba30a0d2e5122be180cd00fb6d44099e0ea"
           }
         ]
       }
@@ -507,83 +491,79 @@ window.KURAGE_NEWS = {
     "spiritual": [
       {
         "region": "日本",
-        "telop": "今日は小雪",
-        "title": "今日22日は二十四節気の「小雪」",
-        "summary": "日本時間の午後4時23分に入ります。北のほうから雪がちらつきはじめるころで、冬じたくを整える節目とされます。",
+        "telop": "今日は勤労感謝の日",
+        "title": "今日23日は勤労感謝の日。もとは新米を神さまに供える「新嘗祭」",
+        "summary": "1948年に祝日として定められました。働く人と、その年の実りに感謝する日です。",
         "sources": [
           {
-            "name": "ベストカレンダー",
-            "url": "https://www.bestcalendar.jp/koyomi/shosetsu"
+            "name": "内閣府",
+            "url": "https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html"
           },
           {
-            "name": "雑学ネタ帳",
-            "url": "https://zatsuneta.com/archives/111220.html"
-          }
-        ]
-      },
-      {
-        "region": "日本",
-        "telop": "あした23日は新嘗祭",
-        "title": "あした23日の勤労感謝の日は、新米を神さまに供える新嘗祭",
-        "summary": "宮中や全国の神社で、その年の実りに感謝します。",
-        "sources": [
-          {
             "name": "ベストカレンダー",
-            "url": "https://bestcalendar.jp/dates/kinenbi/134966"
+            "url": "https://www.bestcalendar.jp/koyomi/kinro-kansha-no-hi"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "23日は下元節",
-        "title": "台湾などでは23日が「下元節」。水の神さまをまつる日とされます",
-        "summary": "旧暦の10月15日にあたる日で、台湾のニュースが伝えています。",
+        "telop": "今日は下元節",
+        "title": "台湾などでは今日23日が「下元節」",
+        "summary": "旧暦の10月15日にあたり、水の神さまをまつる日とされます。",
         "sources": [
           {
             "name": "NOWnews",
             "url": "https://www.nownews.com/news/6893157"
           }
         ]
+      },
+      {
+        "region": "日本",
+        "telop": "小雪のころ",
+        "title": "小雪のあいだは、冬じたくを進める時期",
+        "summary": "12月6日までが「小雪」の期間です。北のほうから雪の便りが増えてきます。",
+        "sources": [
+          {
+            "name": "ベストカレンダー",
+            "url": "https://www.bestcalendar.jp/koyomi/shosetsu"
+          }
+        ]
       }
     ],
     "legend": [
       {
-        "region": "世界",
-        "telop": "人は冬眠できる？",
-        "title": "「人間も冬眠できる」って本当？",
-        "summary": "マウスでは、脳の一部の細胞を働かせると冬眠に近い状態になることがわかっています。人で冬眠のような状態をくり返した例も報告されましたが、人が自由に冬眠できる方法はまだありません。",
+        "region": "日本",
+        "telop": "「耳から白い糸」はデマ",
+        "title": "「耳から出た白い糸を抜くと失明する」は医学的な根拠のないデマ",
+        "summary": "昔から語られてきた有名な都市伝説です。耳と目の神経はつながっていません。",
         "sources": [
           {
-            "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/199231"
-          },
+            "name": "Yahoo!ニュース（ウォーカープラス）",
+            "url": "https://news.yahoo.co.jp/articles/98f0060ed2f3759c679ccb33e7c1132f0a026637"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "政府広報に都市伝説の人",
+        "title": "安全保障の政府広報に「都市伝説」を紹介するユーチューバー。ふさわしくないと疑問の声",
+        "summary": "政府は若い人に関心をもってもらうためと説明しています。うわさと事実を見分ける大切さが、あらためて話題になっています。",
+        "sources": [
           {
-            "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210174"
+            "name": "Yahoo!ニュース（読売新聞）",
+            "url": "https://news.yahoo.co.jp/articles/e15b488622dc3d6606f9064f66db554e04ea3761"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "「オスは働かない」はまちがい",
-        "title": "「オスのハチは何もしない」は言いすぎ",
-        "summary": "マルハナバチのオスが、子を温めて巣を育てていたことがわかりました。生き物の「常識」も、研究で変わることがあります。",
+        "telop": "グランドキャニオンは謎",
+        "title": "グランドキャニオンがどうできたかは、まだだれにも分かっていない",
+        "summary": "「川が長い時間をかけて削った」だけでは説明しきれず、いくつもの説があります。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210214"
-          }
-        ]
-      },
-      {
-        "region": "世界",
-        "telop": "「11月に宇宙船」説 残り9日",
-        "title": "ババ・ヴァンガの「2026年11月に宇宙船」説、11月は残り9日",
-        "summary": "本人の記録はなく、根拠は確認されていません。宇宙のニュースなら、日本のH3ロケットが民間の打ち上げに変わる話のほうが現実的です。",
-        "sources": [
-          {
-            "name": "検証記事（スマホと暮らしのヒント）",
-            "url": "https://sense-yoku.hatenablog.com/entry/2026/11/11/062706"
+            "url": "https://nazology.kusuguru.co.jp/archives/210401"
           }
         ]
       }
@@ -591,17 +571,17 @@ window.KURAGE_NEWS = {
     "season": [
       {
         "region": "日本",
-        "telop": "新潟 土砂災害に厳重警戒",
-        "title": "強い冬型が続き、新潟県では22日にかけて土砂災害に厳重警戒",
-        "summary": "柏崎市・上越市・刈羽村に「レベル4」の土砂災害危険警報が出ました。北日本や東日本の山沿いでは雪も積もっています。3連休の移動は最新の情報を確かめてください。",
+        "telop": "今朝は冷えこみ 凍結注意",
+        "title": "勤労感謝の日は広く晴れ。ただ朝は放射冷却で冷えこみ、凍結に注意",
+        "summary": "東京や名古屋でも最低3度ほどの予想です。あす24日は全国的に雨や雪になる見込みです。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79668"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261122de80033"
           },
           {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261121de79606"
+            "name": "ウェザーニュース",
+            "url": "https://weathernews.jp/news/202611/220171/"
           }
         ]
       }
