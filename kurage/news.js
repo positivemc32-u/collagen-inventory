@@ -7,51 +7,47 @@
 // 「四季と暦」は、節気と旬をアプリが自動で足すので、ここには季節のニュースを1件だけ入れます。
 // =============================================================
 window.KURAGE_NEWS = {
-  "date": "2026-11-24",
+  "date": "2026-11-25",
   "sections": {
     "today": [
       {
-        "region": "世界",
-        "telop": "フアン氏 CEOに復帰",
-        "title": "米半導体大手エヌビディア、辞任したジェンスン・フアン氏がCEOに復帰",
-        "summary": "11月12日に辞任してから11日での復帰です。取締役会が全会一致で決め、株価は時間外の取引で3割以上値上がりしました。",
-        "detail": "エヌビディアは、AIを動かすための半導体で世界の先頭を走る会社です。フアン氏は会社をつくった人の一人です。",
+        "region": "日本",
+        "telop": "佐藤輝明 カブスへ",
+        "title": "阪神の佐藤輝明選手、大リーグのカブスと6年総額およそ191億円で合意と報道",
+        "summary": "日本人の野手として最高額になると報じられています。今季は打率3割6厘、39本塁打、106打点で三冠王でした。",
+        "world": "カブスは、これまで鈴木誠也選手が所属したチームで、アメリカでも人気の名門球団です。",
         "sources": [
-          {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80304"
-          },
           {
             "name": "Yahoo!ニュース（共同通信）",
-            "url": "https://news.yahoo.co.jp/articles/012164b91104c48db1d3cef440d201bad594ffda"
-          }
-        ]
-      },
-      {
-        "region": "世界",
-        "telop": "韓国 重要閣僚を交代",
-        "title": "韓国のイ・ジェミョン政権、外相など重要閣僚を交代へ",
-        "summary": "ぎくしゃくするアメリカとの関係を立て直すねらいがあるとの見方も出ています。",
-        "sources": [
+            "url": "https://news.yahoo.co.jp/articles/474785680fdfa3dba06b2c466ae2afd4ed7a944f"
+          },
           {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80277"
+            "name": "時事ドットコム",
+            "url": "https://sp.m.jiji.com/article/show/3918628"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "阪神 連覇パレード",
-        "title": "リーグ連覇の阪神タイガースが大阪・御堂筋でパレード",
-        "summary": "藤川球児監督や選手ら35人が参加し、沿道には大勢のファンが集まりました。藤川監督は「来年は日本一になって御堂筋を歩きたい」と話しました。",
+        "telop": "関東甲信 暖冬傾向",
+        "title": "関東甲信、この冬は暖冬傾向。ただ気温の変化が大きく大雪のおそれも",
+        "summary": "気象庁の3か月予報で、来月からの気温は平年より高いと予想されました。寒気が流れこむと大雪になることもあります。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80286"
-          },
+            "url": "https://news.web.nhk/newsweb/na/nd-20261124de80823"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "AI活用前提で制度見直し",
+        "title": "政府の「AI・デジタル改革原則」の原案。AIを使うことを前提に規制や制度を見直す",
+        "summary": "AIを生かすために、古いルールを見直していく方針が示されました。",
+        "sources": [
           {
-            "name": "Yahoo!ニュース（産経新聞）",
-            "url": "https://news.yahoo.co.jp/articles/88ca33eb5c093a64dc0c02ab7ce242d4cf08ce8e"
+            "name": "NHK",
+            "url": "https://news.web.nhk/newsweb/na/nd-20261124de80568"
           }
         ]
       }
@@ -59,37 +55,37 @@ window.KURAGE_NEWS = {
     "ishikawa": [
       {
         "region": "日本",
-        "telop": "カピバラにゆず湯",
-        "title": "いしかわ動物園で、寒さに弱いカピバラにゆず湯のプレゼント",
-        "summary": "能美市の動物園で、温かいお湯にゆずを浮かべました。",
+        "telop": "強風で外壁はがれる",
+        "title": "石川県内で強風。羽咋で最大瞬間風速23メートル、金沢で21メートル",
+        "summary": "金沢市では、住宅の外壁や屋根瓦が壊れたという通報が相次ぎました。加賀地方には一時、竜巻注意情報も出ました。",
         "sources": [
           {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80193"
+            "name": "北國新聞",
+            "url": "https://www.hokkoku.co.jp/articles/-/2300575"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "輪島で香箱ガニ汁",
-        "title": "輪島で香箱ガニ汁700杯をふるまい。冬の味覚を楽しむ",
-        "summary": "マリンタウンで、冬の味覚の香箱ガニを使った汁がふるまわれました。",
+        "telop": "二の丸御殿 設計を変更",
+        "title": "金沢城の二の丸御殿の復元で、異例の設計変更。玄関の新しい図面が見つかる",
+        "summary": "県は、見つかった図面をもとに「史実どおりに」復元するとしています。",
         "sources": [
           {
             "name": "北國新聞",
-            "url": "https://www.hokkoku.co.jp/articles/-/2298519"
+            "url": "https://www.hokkoku.co.jp/articles/-/2299430"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "モバイルバッテリー出火",
-        "title": "金沢市西泉の住宅で、モバイルバッテリーから出火",
-        "summary": "火はまもなく消し止められました。充電中は目を離さない、熱くなったら使わない、などの注意が大切です。",
+        "telop": "七尾市 民宿の新設を支援",
+        "title": "七尾市が民宿の新設に上限500万円の支援。県内初の条例",
+        "summary": "和倉温泉では客室が半分ほどに減り、高級な宿が増えています。泊まりやすい宿を増やして、観光客を呼びこむねらいです。",
         "sources": [
           {
             "name": "北國新聞",
-            "url": "https://www.hokkoku.co.jp/articles/-/2298638"
+            "url": "https://www.hokkoku.co.jp/articles/-/2299415"
           }
         ]
       }
@@ -97,38 +93,38 @@ window.KURAGE_NEWS = {
     "kosodate": [
       {
         "region": "日本",
-        "telop": "はじめの100か月",
-        "title": "こども家庭庁が「はじめの100か月の育ちビジョン」の全国大会",
-        "summary": "22日と23日に東京で初めて開かれ、地域で子どもの育ちを支えるつなぎ方などが話し合われました。",
-        "detail": "「はじめの100か月」は、お母さんのお腹にいるときから小学校1年生ごろまでの、およそ8年あまりのことです。",
+        "telop": "ゼリー事故の再発防止",
+        "title": "奈良県香芝市で、保育所やこども園の職員向けに窒息事故の再発防止の研修",
+        "summary": "認定こども園で、園児が凍らせたゼリーをのどにつまらせて亡くなった事故を受けたものです。",
+        "detail": "小さな子は、のどが細く、かむ力や飲みこむ力も育ちきっていません。丸くてつるっとした食べ物や、かたい食べ物は特に注意が必要です。",
+        "sources": [
+          {
+            "name": "NHK",
+            "url": "https://news.web.nhk/newsweb/na/nd-20261124de80557"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "性暴力防止法 代わりの策を",
+        "title": "こども性暴力防止法の施行を前に、東京都が国に代わりの策を求める緊急要望",
+        "summary": "働く人の性犯罪歴を確かめる仕組みの稼働が延期されたためです。法律は12月25日に施行される予定です。",
         "sources": [
           {
             "name": "リシード",
-            "url": "https://reseed.resemom.jp/article/2026/11/10/14520.html"
+            "url": "https://reseed.resemom.jp/article/2026/11/24/14616.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "育児のSOSに「育児119」",
-        "title": "子育て中のSOSに助けを送る「育児119」、熊本でも準備",
-        "summary": "親の急病やワンオペの疲れなどのとき、LINEや電話で連絡すると、子育てや保育の経験のあるスタッフが来てくれる有料のサービスです。",
+        "telop": "子どもの自殺 防止へ",
+        "title": "小中高生の自殺、1月から10月で490人。過去最多だった去年を上回るペース",
+        "summary": "こども家庭庁は、自治体への支援を強めるなど総力をあげて防ぐ方針です。悩みを打ち明けられる場所を、身近な大人が知っておくことも大切です。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（熊本日日新聞）",
-            "url": "https://news.yahoo.co.jp/articles/81f8fe5c47c63541fd9d1dc998edba248355872b"
-          }
-        ]
-      },
-      {
-        "region": "日本",
-        "telop": "保育園と公園がひとつに",
-        "title": "鳥取県江府町で、保育園と公園を一つにした施設の建設へ",
-        "summary": "23日に、建設に向けたセレモニーが開かれました。",
-        "sources": [
-          {
-            "name": "Yahoo!ニュース（BSS山陰放送）",
-            "url": "https://news.yahoo.co.jp/articles/921014279f656736a07d256c7106400d4cb4a81d"
+            "name": "リシード",
+            "url": "https://reseed.resemom.jp/article/2026/11/24/14615.html"
           }
         ]
       }
@@ -136,86 +132,78 @@ window.KURAGE_NEWS = {
     "kids": [
       {
         "region": "日本",
-        "telop": "葉っぱが色づくわけ",
-        "title": "秋に葉っぱが赤や黄色になるのはなぜ？",
-        "summary": "葉の緑色は「葉緑素」という色のもと。寒くなって葉緑素がへると、かくれていた黄色が見えたり、新しく赤い色がつくられたりします。",
+        "telop": "勤労感謝の日のはじまり",
+        "title": "23日の勤労感謝の日は、どうしてできたの？",
+        "summary": "もとは、その年にとれたお米を神さまにそなえて感謝する「新嘗祭」という行事でした。いまは、働く人みんなに感謝する日です。",
         "sources": [
           {
-            "name": "ニュースがわかる オンライン（毎日小学生新聞）",
-            "url": "https://www.newsgawakaru.com/tag/mainichi-junior-newspapers/"
+            "name": "学研キッズネット",
+            "url": "https://kids.gakken.co.jp/"
+          }
+        ]
+      },
+      {
+        "region": "世界",
+        "telop": "世界テレビデー",
+        "title": "11月21日は国連が決めた「世界テレビデー」",
+        "summary": "テレビが情報を伝える大切な役割を考える日です。子ども向けのニュースで紹介されました。",
+        "sources": [
+          {
+            "name": "学研キッズネット",
+            "url": "https://kids.gakken.co.jp/"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "耳そうじはしなくていい？",
-        "title": "耳そうじをしないとどうなるの？",
-        "summary": "耳には、耳あかを自然に外へ押し出す力があります。毎日の耳そうじは必要ないといわれています。",
+        "telop": "学研の新キャラ総選挙",
+        "title": "学研グループの80周年記念キャラクター総選挙。親子で選ぼう",
+        "summary": "学研の「新しい顔」になるキャラクターを、子どもたちの投票で選びます。",
         "sources": [
           {
-            "name": "ニュースがわかる オンライン（毎日小学生新聞）",
-            "url": "https://www.newsgawakaru.com/tag/mainichi-junior-newspapers/"
-          },
-          {
-            "name": "るるぶKids（医師の解説）",
-            "url": "https://kids.rurubu.jp/article/158325/"
-          }
-        ]
-      },
-      {
-        "region": "日本",
-        "telop": "「一票の格差」って？",
-        "title": "最高裁が、去年の参議院選挙の「一票の格差」について判断",
-        "summary": "住んでいる場所によって、一票の重さがちがうことを「一票の格差」といいます。子ども向けの新聞でも取り上げられました。",
-        "sources": [
-          {
-            "name": "学研キッズネット（やさしい朝日新聞）",
-            "url": "https://kids.gakken.co.jp/news/"
+            "name": "学研キッズネット",
+            "url": "https://kids.gakken.co.jp/parents/news/gakken-character2026/"
           }
         ]
       }
     ],
     "sports": [
       {
-        "region": "日本",
-        "telop": "競輪祭 山口拳矢が初優勝",
-        "title": "競輪のGI「競輪祭」、山口拳矢選手が大会初優勝。年末のグランプリへ",
-        "summary": "仲間の助けを借りない「単騎」で走り、2コーナーから一気にまくって、2着に5車身の差をつけました。",
-        "detail": "競輪はふつう、何人かで列をつくって風よけにしながら走ります。「まくり」は、外側から一気に前の選手を追い抜く走り方です。",
+        "region": "世界",
+        "telop": "柏 アジアで連勝",
+        "title": "サッカーのアジアチャンピオンズリーグエリート、柏レイソルがオーストラリアのチームに2対1で勝利",
+        "summary": "途中から出た弓場堅真選手が決勝ゴールを決めました。",
+        "detail": "アジアチャンピオンズリーグエリートは、アジアのクラブチームの1番を決める大会。勝つと世界のクラブの大会にもつながります。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（サンケイスポーツ）",
-            "url": "https://news.yahoo.co.jp/articles/e571efe4fd54e983a1835dea6a50acf0cf2c2b2a"
-          },
-          {
-            "name": "Yahoo!ニュース（スポニチ）",
-            "url": "https://news.yahoo.co.jp/articles/bdee2b13a0ddb38a02fdff5b8cd1b582a1d7dccb"
+            "name": "Yahoo!ニュース（サッカーキング）",
+            "url": "https://news.yahoo.co.jp/articles/18ea71e6fa96009fc4ba3fe727e8c6e5bedbfaa6"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "大商大 神宮大会の決勝へ",
-        "title": "明治神宮大会の大学の部、大阪商業大学が逆転して決勝へ",
-        "summary": "準決勝で筑波大学に5対4で勝ちました。4番の真鍋慧選手が7回に逆転のスリーランホームランを打ちました。",
-        "detail": "明治神宮大会は、秋の地区大会を勝ち抜いた大学や高校が集まる大会で、「秋の日本一」を決めます。",
+        "telop": "王将戦 27日プレーオフ",
+        "title": "将棋の王将戦、挑戦者を決めるリーグで永瀬九段と藤本七段が並び、27日にプレーオフ",
+        "summary": "勝った方が、藤井聡太王将に挑みます。王将戦の七番勝負は来年1月に始まります。",
+        "detail": "リーグ戦で成績が同じ人が並んだときは、もう一局指して決めます。これを「プレーオフ」といいます。",
         "sources": [
           {
             "name": "Yahoo!ニュース（日刊スポーツ）",
-            "url": "https://news.yahoo.co.jp/articles/cf7cdbc5b1355489011b4b4f8211b49e69fc2e09"
+            "url": "https://news.yahoo.co.jp/articles/adc155dfb2a5a5800fb3a5d27165711d7857fa3b"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "武豊騎手 ハナ差の勝利",
-        "title": "競馬の東京スポーツ杯2歳ステークス、武豊騎手のオンユアマークスが勝利",
-        "summary": "6番人気でしたが、負けなしだったショウナンガレオンをハナ差で破りました。",
-        "detail": "「ハナ差」は、馬の鼻先ほどのほんのわずかな差のこと。写真で判定するほどの接戦です。",
+        "telop": "卓球 松島が世界1位",
+        "title": "卓球の男子世界ランキング、松島輝空選手が1位をキープ。戸上隼輔選手は自己最高の11位",
+        "summary": "戸上選手は国際大会で優勝して順位を上げました。",
+        "detail": "世界ランキングは、大会の成績でもらえるポイントで決まります。大きな大会ほどポイントが多くもらえます。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（競馬のおはなし）",
-            "url": "https://news.yahoo.co.jp/articles/3a63270c15d509e567113d171eb9ff7cfb5cdb66"
+            "name": "Yahoo!ニュース（Rallys）",
+            "url": "https://news.yahoo.co.jp/articles/4e3bf653ad2d267121eee06f3e9edb50f3dfa5b3"
           }
         ]
       }
@@ -223,75 +211,76 @@ window.KURAGE_NEWS = {
     "music": [
       {
         "region": "日本",
-        "telop": "乃木坂46「君ロス」",
-        "title": "乃木坂46、12月2日発売の新しいシングル「君ロス」の収録内容を発表",
-        "summary": "メンバーのユニット曲なども入ります。",
+        "telop": "ヒゲダン×ポケモン30周年",
+        "title": "Official髭男dism、ポケモン30周年のための新曲「エバーグリーン」。スペシャルMVは30日公開",
+        "summary": "ポケモンの30周年を記念して書き下ろした曲です。",
         "sources": [
           {
             "name": "音楽ナタリー",
-            "url": "https://natalie.mu/music/news/699286"
+            "url": "https://natalie.mu/music/news/699389"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "日向坂46 武道館で感謝祭",
-        "title": "日向坂46、「おひさま感謝祭」を日本武道館で2日間開催",
-        "summary": "「おひさま」は日向坂46のファンの呼び名です。",
+        "telop": "M!LK 新ツアー発表",
+        "title": "M!LK、結成12周年の日に新しいアリーナツアーを発表",
+        "summary": "生配信の同時視聴は、グループで最も多い34万人をこえました。",
         "sources": [
           {
             "name": "音楽ナタリー",
-            "url": "https://natalie.mu/music/news/699284"
+            "url": "https://natalie.mu/music/news/699471"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "マーシー フロンターレの歌",
-        "title": "ザ・クロマニヨンズの真島昌利さん、川崎フロンターレの30周年記念の曲をつくる",
-        "summary": "サッカーJリーグの川崎フロンターレが、創設30周年を記念して頼みました。",
+        "telop": "相田翔子さんとコラボ",
+        "title": "Night Tempoが、Winkの相田翔子さんとのコラボ曲を配信",
+        "summary": "作曲には、ASIAN KUNG-FU GENERATIONの山田貴洋さんが参加しました。新しいアルバムも発表しました。",
         "sources": [
           {
             "name": "音楽ナタリー",
-            "url": "https://natalie.mu/music/news/699282"
+            "url": "https://natalie.mu/music/news/699316"
           }
         ]
       }
     ],
     "science": [
       {
-        "region": "世界",
-        "telop": "火星の石から硫黄",
-        "title": "火星の探査車が割った石の中から、純粋な硫黄が見つかった",
-        "summary": "NASAの探査車キュリオシティが踏んで割った石の中にありました。どうしてできたのかは、まだ大きな謎です。",
+        "region": "日本",
+        "telop": "海王星の外に地球級の星？",
+        "title": "海王星の外側に、地球くらいの大きさの惑星がかくれているかもしれない",
+        "summary": "近畿大学などの研究です。地球の1.5倍から2倍の重さの惑星があれば、遠くの氷の天体のふしぎな動きを説明できるとしています。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210334"
+            "url": "https://nazology.kusuguru.co.jp/archives/211120"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "4色問題が前進",
+        "title": "地図を4色でぬり分ける174年前の難問、計算方法が30年ぶりに前進",
+        "summary": "日本の国立情報学研究所などのチームが、ぬり分けの計算をとても速くする方法を見つけました。",
+        "detail": "「となり合う国がちがう色になるように地図をぬるには、4色あれば足りる」という問題です。",
+        "sources": [
+          {
+            "name": "ナゾロジー",
+            "url": "https://nazology.kusuguru.co.jp/archives/210604"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "28光年先の三つ子星",
-        "title": "地球から28光年先の星は、ありえないはずの「三つ子の星」だった",
-        "summary": "カナダのモントリオール大学などの研究で、白色矮星という星をふくむ三つ子の星だとわかりました。",
+        "telop": "10月は記録上最も暑い",
+        "title": "今年の10月は、記録が残る中でいちばん暑い10月だった",
+        "summary": "ヨーロッパの気候を見守るサービスが発表しました。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210721"
-          }
-        ]
-      },
-      {
-        "region": "世界",
-        "telop": "花粉を運ぶゴキブリ",
-        "title": "アマゾンの夜、ゴキブリが花の蜜を飲み、花粉を運んでいた",
-        "summary": "ハチやチョウだけでなく、ゴキブリも花の受粉を手伝っていることが観察されました。",
-        "sources": [
-          {
-            "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210747"
+            "url": "https://nazology.kusuguru.co.jp/archives/210328"
           }
         ]
       }
@@ -299,40 +288,40 @@ window.KURAGE_NEWS = {
     "anatomy": [
       {
         "region": "世界",
-        "telop": "聞く脳が先に単語を準備",
-        "title": "聞き取り役とされてきた脳の言語中枢が、話す単語を先に用意していた",
-        "summary": "アメリカのカリフォルニア大学サンフランシスコ校などの研究です。声に出すおよそ0.25秒前に、言う単語に合わせて脳が動き出していました。",
-        "detail": "言葉を聞いてわかる場所は、左の耳の上あたりの脳（側頭葉）にあります。ここが話す準備にもかかわっていたことになります。",
+        "telop": "睡眠時間のばらつき",
+        "title": "睡眠時間の「ばらつき」は、心臓や血管の病気のなりやすさと結びついていた",
+        "summary": "アメリカの研究で、1万人あまりの眠りを半年間記録しました。平均の長さよりも、夜ごとのばらつきのほうが関係していました。",
+        "detail": "体には「体内時計」があり、脳の奥の視床下部にある小さな部分が司令塔です。毎日同じ時間に寝て起きると、体内時計が整いやすくなります。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210533"
+            "url": "https://nazology.kusuguru.co.jp/archives/210648"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "肝臓を体の外で7週間",
-        "title": "人の肝臓を体の外で7週間生かし続け、世界最長を更新",
-        "summary": "移植などの研究に役立つことが期待されています。",
-        "detail": "肝臓は、お腹の右上、肋骨のうしろにあるお腹の中でいちばん大きな臓器です。栄養をたくわえたり、体に悪いものを分解したりします。",
+        "telop": "194歳のカメの遺伝子",
+        "title": "194歳のゾウガメ、DNAを直す遺伝子の使い方が若いカメと同じ",
+        "summary": "世界最高齢の陸の動物とされる「ジョナサン」を調べた研究です。長生きのひみつのヒントになるかもしれません。",
+        "detail": "人の体の細胞でも、DNAは毎日のように傷つき、そのたびに直されています。この直す力が、年をとると少しずつ弱くなります。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/210149"
+            "url": "https://nazology.kusuguru.co.jp/archives/211127"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "カリウム入りの塩",
-        "title": "食塩をカリウム入りの塩にかえると、世界で年296万人の命を救える可能性",
-        "summary": "オーストラリアの研究所などが試算しました。塩分のとりすぎは血圧を上げ、心臓や血管の病気につながります（試算です。腎臓の病気がある人はカリウムに注意が必要です）。",
-        "detail": "心臓は、握りこぶしくらいの大きさで、1日におよそ10万回も動いて血液を全身に送っています。",
+        "telop": "初めてなのに懐かしい",
+        "title": "幻覚剤を使った人は、初めての場所でも「懐かしい」と感じやすい",
+        "summary": "「デジャブ」のような感覚について調べた研究です。",
+        "detail": "記憶には、脳の奥にある「海馬（かいば）」がかかわっています。タツノオトシゴのような形からその名前がつきました。",
         "sources": [
           {
             "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/206659"
+            "url": "https://nazology.kusuguru.co.jp/archives/210324"
           }
         ]
       }
@@ -340,45 +329,37 @@ window.KURAGE_NEWS = {
     "phyto": [
       {
         "region": "日本",
-        "telop": "薬草の収穫体験ツアー",
-        "title": "福井県高浜町で、医師や薬剤師が参加する薬草の収穫体験ツアー",
-        "summary": "全国から16人が参加し、収穫や加工を体験しました。町は薬草の特産化をめざしています。",
+        "telop": "「藻」を健康食品に",
+        "title": "愛知県豊橋市で、「藻」を健康食品にするための大量生産の実験を公開",
+        "summary": "豊橋技術科学大学などが、農業用のハウスで藻を大量に育てる実験をしています。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80231"
-          },
-          {
-            "name": "Yahoo!ニュース（福井テレビ）",
-            "url": "https://news.yahoo.co.jp/articles/e4ce11de129a5ee82c6bc01079a42dfab3510e0e"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261124de80836"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "冬至まであと1か月",
-        "title": "今年の冬至は12月22日。ゆず湯の季節",
-        "summary": "冬至は一年で昼がいちばん短い日。ゆずのような香りの強いもので体を清める習わしがあるとされます。",
+        "telop": "漢方の考えを香りに",
+        "title": "漢方の考え方を香りにした新しいブランド「nonu」が、香りの石けんを先行販売",
+        "summary": "最初の商品は、香りを楽しめる固形の石けんです。",
         "sources": [
           {
-            "name": "ツムラ（暦と暮らそう）",
-            "url": "https://www.tsumura.co.jp/japanese-tradition/season/24touji.html"
-          },
-          {
-            "name": "日本気象協会 tenki.jp",
-            "url": "https://tenki.jp/suppl/k_mochizuki/2024/12/19/32557.html"
+            "name": "PR TIMES",
+            "url": "https://prtimes.jp/main/html/rd/p/000000296.000034018.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "北海道は生薬の産地",
-        "title": "漢方の原料の生薬、北海道で栽培が広がる",
-        "summary": "若い世代の冷えやストレスで漢方の需要が増え、大手企業の参入も進んでいると報じられています。",
+        "telop": "和漢チャイにあずき",
+        "title": "漢方専門店の「和漢チャイ」に、カフェインなしの「あずき」",
+        "summary": "ごぼう茶をベースにしていて、夜のリラックスタイムにも飲めるとしています。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（HBC北海道放送）",
-            "url": "https://news.yahoo.co.jp/articles/0b9dacac9eeb8c14c160968af5ca2653f66f82bc"
+            "name": "PR TIMES（薬日本堂）",
+            "url": "https://prtimes.jp/main/html/rd/p/000000063.000045717.html"
           }
         ]
       }
@@ -386,37 +367,37 @@ window.KURAGE_NEWS = {
     "aroma": [
       {
         "region": "日本",
-        "telop": "温泉施設の香りグッズ",
-        "title": "温泉施設「竜泉寺の湯」のアロマサシェとスプレー、名前とパッケージを新しく",
-        "summary": "香りのグッズをつくる会社が、追加の生産にあわせて「The Sweet Memory」に名前を変えたと発表しました。",
+        "telop": "1日を描く香り 完結",
+        "title": "1日の移り変わりを描く5つの香り、最後の「Black Mountain」が27日発売",
+        "summary": "Yohakuブランドのボタニカルアロマミストのシリーズが、これで完成します。",
         "sources": [
           {
-            "name": "PR TIMES（プロモツール）",
-            "url": "https://prtimes.jp/main/html/rd/p/000000327.000023783.html"
+            "name": "PR TIMES",
+            "url": "https://prtimes.jp/main/html/rd/p/000000053.000043904.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "アロマで除菌スプレー",
-        "title": "オリジナルのアロマの香りで、除菌スプレーをつくるサービス",
-        "summary": "お店や会社のオリジナルの香りで、除菌スプレーをつくれるようになります。",
+        "telop": "お茶の香りのアロマストーン",
+        "title": "お茶の香りが広がる、天然石のアロマストーン",
+        "summary": "石にオイルをたらして香りを楽しみます。お茶の色に合わせた石が使われています。",
         "sources": [
           {
-            "name": "PR TIMES（プロモツール）",
-            "url": "https://prtimes.jp/main/html/rd/p/000000322.000023783.html"
+            "name": "PR TIMES（ライフオンプロダクツ）",
+            "url": "https://prtimes.jp/main/html/rd/p/000000437.000073257.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "お香の新しい香り",
-        "title": "ナチュラルケアブランド「track」から、お香の「track インセンス」",
-        "summary": "ディフューザーにも新しい香りが加わりました。",
+        "telop": "精油のロールオン 完売",
+        "title": "オーガニック精油を3%入れたロールオンの香油、最初の分が完売",
+        "summary": "追加でつくった分を販売し、東京と長野でポップアップのお店も開きます。",
         "sources": [
           {
-            "name": "PR TIMES（track）",
-            "url": "https://prtimes.jp/main/html/rd/p/000000050.000028204.html"
+            "name": "PR TIMES（AWA Olfactory）",
+            "url": "https://prtimes.jp/main/html/rd/p/000000010.000137117.html"
           }
         ]
       }
@@ -424,75 +405,75 @@ window.KURAGE_NEWS = {
     "realestate": [
       {
         "region": "日本",
-        "telop": "転売に課税強化を検討",
-        "title": "マンション価格の高騰をおさえるため、投資目的の転売への課税強化を検討",
-        "summary": "政府・与党が検討していると報じられています。大阪では、短い間に価値が大きく下がった例も紹介されています。",
+        "telop": "LPガスの肩代わり禁止へ",
+        "title": "賃貸物件のLPガス設備費の肩代わり、全面禁止へ",
+        "summary": "ガス会社が設備費を負担し、その分を入居者のガス代に上乗せする慣行を正すねらいです。オーナーにとっても見直しが必要になります。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（FNNプライムオンライン）",
-            "url": "https://news.yahoo.co.jp/articles/1bb6455c5e9c1459303a80e05497c4ecf7ce5e89"
+            "name": "日本経済新聞",
+            "url": "https://www.nikkei.com/article/DGXZQOUA27CKQ0X21C26A0000000/"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "空き家と「実家じまい」",
-        "title": "売りたくても売れない空き家がふえる。「実家じまい」のむずかしさ",
-        "summary": "一方で、地域が必要とする使い方で空き家を活かす動きも進んでいます。",
+        "telop": "オーナーの個人情報を守る",
+        "title": "賃貸オーナーの個人情報は大丈夫？ ハッカーや犯罪グループから身を守る",
+        "summary": "入居審査の書類にある個人情報を早めに消すことなどがすすめられています。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（TOKYO MX）",
-            "url": "https://news.yahoo.co.jp/articles/4a0877a143741cb361ea453ae11f7ea91b7c25c6"
+            "name": "健美家",
+            "url": "https://www.kenbiya.com/ar/ns/for_rent/chintai_keiei/10717.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "金利が上がると家賃は？",
-        "title": "金利が上がると、賃貸のオーナーも家賃の値上げを求める可能性",
-        "summary": "借入の金利が上がるオーナーが多いためです。地域によって地価の上がり方にも差が出ていると分析されています。",
+        "telop": "賃貸住宅フェア 大阪で",
+        "title": "オーナーや管理会社向けの「賃貸住宅フェア2026大阪」、26日と27日に開催",
+        "summary": "インテックス大阪で開かれます。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（東洋経済オンライン）",
-            "url": "https://news.yahoo.co.jp/articles/e5661ba6be371d4ffdc5eb683a014e4629a4a530"
+            "name": "健美家",
+            "url": "https://www.kenbiya.com/ar/ns/release/p_event/10726.html"
           }
         ]
       }
     ],
     "nutrition": [
       {
-        "region": "世界",
-        "telop": "たんぱく質を減らしたら",
-        "title": "カロリーはそのままでたんぱく質だけ減らすと、体重と血糖が下がった",
-        "summary": "アメリカのウィスコンシン大学などが、350本をこえる論文を調べ直しました。たんぱく質は少なすぎても困るので、極端に減らすのはよくありません（多くの研究をまとめたもので、エビデンスは中くらい）。",
+        "region": "日本",
+        "telop": "サプリで気をつけること",
+        "title": "サプリをとるときは、脂に溶けるビタミンのとりすぎに注意",
+        "summary": "ビタミンA・D・E・Kは体にたまりやすく、とりすぎると体に悪いことがあります。薬との飲み合わせにも気をつけましょう（よく知られた注意点です）。",
         "sources": [
           {
-            "name": "ナゾロジー",
-            "url": "https://nazology.kusuguru.co.jp/archives/209069"
-          }
-        ]
-      },
-      {
-        "region": "世界",
-        "telop": "貝は栄養の宝庫",
-        "title": "カキ、ムール貝、アサリは、鉄・亜鉛・ヨウ素・ビタミンB12が豊富",
-        "summary": "貝や甲殻類が、大事な栄養素の供給源だとする研究が『ネイチャー』に出たと紹介されています（栄養の量そのものは確かなデータです）。",
-        "sources": [
-          {
-            "name": "Yahoo!ニュース（ヨガジャーナルオンライン）",
-            "url": "https://news.yahoo.co.jp/articles/934c48ff28b9164e566e1a459358c2a3768a253a"
+            "name": "Yahoo!ニュース（ダイヤモンド・オンライン）",
+            "url": "https://news.yahoo.co.jp/articles/7d0d0a8997be68b6c06e29765af46fb2a0b93f18"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "ひじきだけで貧血対策？",
-        "title": "ひじきだけで貧血の対策はむずかしい。鉄の吸収を助ける食材と一緒に",
-        "summary": "ビタミンCなどと一緒にとると、植物にふくまれる鉄が吸収されやすくなります（よく知られたしくみです）。",
+        "telop": "魚の缶詰でオメガ3",
+        "title": "手軽にオメガ3がとれる、魚の缶詰の選び方",
+        "summary": "サバやイワシなどの青魚の缶詰には、オメガ3脂肪酸が多くふくまれます（成分の量は確かなデータです）。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（ヨガジャーナルオンライン）",
-            "url": "https://news.yahoo.co.jp/articles/6778a7fe1a9342679371f4eb1d331c6819d74d14"
+            "name": "Yahoo!ニュース（ウィメンズヘルス）",
+            "url": "https://news.yahoo.co.jp/articles/42fff0be3bfd32e2d4c7f8eb8b2bf3f41b8b0109"
+          }
+        ]
+      },
+      {
+        "region": "世界",
+        "telop": "マルチビタミンと老化",
+        "title": "毎日のマルチビタミン・ミネラルで、老化がゆっくりになる可能性",
+        "summary": "平均70歳の958人を2年間調べた、大きな試験の一部の研究です（体の年齢の指標を見たもので、病気が減るかはまだわかりません）。",
+        "sources": [
+          {
+            "name": "ナゾロジー",
+            "url": "https://nazology.kusuguru.co.jp/archives/192734"
           }
         ]
       }
@@ -500,75 +481,75 @@ window.KURAGE_NEWS = {
     "spiritual": [
       {
         "region": "日本",
-        "telop": "今日は満月",
-        "title": "今日24日は満月",
-        "summary": "満月は、ものごとが満ちる、ふり返りや感謝に向く日だといわれます。",
+        "telop": "今日は友引",
+        "title": "今日25日は六曜の「友引」",
+        "summary": "お昼ごろは凶、朝と夕方は吉とされます。お祝いごとには良い日といわれます。",
         "sources": [
           {
             "name": "ベストカレンダー",
-            "url": "https://www.bestcalendar.jp/2026/11"
+            "url": "https://bestcalendar.jp/2026/11/25"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "11月の開運日",
-        "title": "11月の一粒万倍日はもう終わり。次の吉日は12月に",
-        "summary": "今年11月の一粒万倍日は7日・8日・19日・20日でした。何かを始めるときの目安にする人もいます。",
+        "telop": "虹がかくれるころ",
+        "title": "七十二候は「虹蔵不見（にじかくれてみえず）」のころ",
+        "summary": "日ざしが弱まり、空気が乾いて、虹を見かけなくなる時期とされます。",
         "sources": [
           {
-            "name": "ベストカレンダー",
-            "url": "https://bestcalendar.jp/koyomi/ichiryumanbaibi"
+            "name": "万年暦（中国の暦）",
+            "url": "https://wannianli.tianqi.com/laohuangli/2026-11-25.html"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "冬至の「運盛り」",
-        "title": "冬至には「ん」のつく食べ物を食べる「運盛り」の習わし",
-        "summary": "なんきん（かぼちゃ）、れんこん、にんじんなど、「ん」がつく食べ物で運を呼びこむとされます。",
+        "telop": "満月のすぐあと",
+        "title": "今夜の月は、満月をすぎたばかりの月齢15.8",
+        "summary": "満月のあとは、手放しや整理に向く時期だといわれます。",
         "sources": [
           {
-            "name": "日本気象協会 tenki.jp",
-            "url": "https://tenki.jp/suppl/k_mochizuki/2024/12/19/32557.html"
+            "name": "ベストカレンダー",
+            "url": "https://bestcalendar.jp/2026/11/25"
           }
         ]
       }
     ],
     "legend": [
       {
-        "region": "世界",
-        "telop": "「首相が死亡」はうそ",
-        "title": "「イスラエルのネタニヤフ首相が死亡」はくり返し広がる誤り",
-        "summary": "日本ファクトチェックセンターが誤りと判定しました。首相の公式アカウントは、ほぼ毎日更新されています。",
+        "region": "日本",
+        "telop": "「化石賞を報じない」は誤り",
+        "title": "「日本がCOP31で化石賞を受けたのにマスコミは報じない」は誤り",
+        "summary": "日本ファクトチェックセンターによると、朝日新聞や読売新聞など主要なメディアの多くが報じていました。",
         "sources": [
           {
-            "name": "Yahoo!ニュース（日本ファクトチェックセンター）",
-            "url": "https://news.yahoo.co.jp/articles/8962d588dfe3a4c8babf8948dd2e2058d30e0883"
+            "name": "日本ファクトチェックセンター",
+            "url": "https://www.factcheckcenter.jp/fact-check/politics/cop31-fossil-award-media-coverage/"
           }
         ]
       },
       {
         "region": "日本",
-        "telop": "「11月6日Xデー」は外れ",
-        "title": "「11月6日はXデー」「備蓄の呼びかけは前ぶれ」といううわさ",
-        "summary": "備蓄の呼びかけは、特定の出来事を想定したものではありませんでした。うわさの日も、何も起きずに過ぎています。",
+        "telop": "「年金廃止」発言はない",
+        "title": "「高市首相が年金廃止を発表」という動画は誤り",
+        "summary": "もとの動画に「年金」という言葉は出てきません。切り取りや作り変えに注意しましょう。",
         "sources": [
           {
             "name": "日本ファクトチェックセンター",
-            "url": "https://www.factcheckcenter.jp/fact-check/lifestyle/rumors-that-november-6-would-be-x-day-spread/"
+            "url": "https://www.factcheckcenter.jp/tag/fact-check/"
           }
         ]
       },
       {
         "region": "世界",
-        "telop": "バットの動画はAI",
-        "title": "「トランプ大統領がバットを振り回した」動画は、AIでつくられたもの",
-        "summary": "本物のように見える動画でも、AIでつくられていることがあります。広める前に確かめることが大切です。",
+        "telop": "陰謀論を信じやすい人",
+        "title": "「心地よい答え」を選ぶ人ほど、陰謀論やワクチンへの不信にかたむいていた",
+        "summary": "信じたい答えを選びがちな人ほど、根拠のない話を信じやすい傾向があったという研究です。",
         "sources": [
           {
-            "name": "日本ファクトチェックセンター",
-            "url": "https://www.factcheckcenter.jp/fact-check/international/trump-swinging-a-baseball-bat-after-the-midterms-was-generated-by-ai/"
+            "name": "ナゾロジー",
+            "url": "https://nazology.kusuguru.co.jp/archives/210949"
           }
         ]
       }
@@ -576,17 +557,13 @@ window.KURAGE_NEWS = {
     "season": [
       {
         "region": "日本",
-        "telop": "今季いちばんの冷えこみ",
-        "title": "23日朝は各地で今季いちばんの冷えこみ。山ではなだれに注意",
-        "summary": "東海地方では広い範囲で、この冬いちばんの寒さになりました。今日24日は前線が通り、香川県では高潮のおそれもあります。",
+        "telop": "新潟 荒れた天気に注意",
+        "title": "新潟県では25日にかけて荒れた天気。土砂災害や強風、高波に十分注意",
+        "summary": "前線と上空の寒気の影響です。佐渡市には暴風警報も出ました。",
         "sources": [
           {
             "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80181"
-          },
-          {
-            "name": "NHK",
-            "url": "https://news.web.nhk/newsweb/na/nd-20261123de80266"
+            "url": "https://news.web.nhk/newsweb/na/nd-20261124de80422"
           }
         ]
       }
