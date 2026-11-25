@@ -402,6 +402,54 @@ window.KURAGE_NEWS = {
         ]
       }
     ],
+    "sinary": [
+      {
+        "region": "日本",
+        "telop": "化粧水シノワーズ R2",
+        "title": "シナリーの化粧水「シノワーズ R2」の155mLサイズ",
+        "summary": "公式サイトで「NEW」として紹介されている、植物由来の保湿成分を配合した化粧水です。バラの花水や天然水をベースにしています。価格は税込6,270円です。",
+        "sources": [
+          {
+            "name": "シナリー公式サイト",
+            "url": "https://www.sinary.com/products/item?id=R2N"
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "R2の使い方の工夫",
+        "title": "シノワーズ R2は「多めにたっぷり」。重ねづけの順番も",
+        "summary": "公式の使い方は、適量を朝晩のスキンケアに。販社のニュースでは、R2をたっぷり使ってからモイスチャーローションを重ね、最後にUVクリームを密着させる順番が紹介されています。くわしい量は担当のアドバイザーに相談するのがおすすめです。",
+        "detail": "スキンケアは、水分の多いものから油分の多いものへ順に重ねるのが基本です。化粧水で肌をうるおしてから、美容液、乳液やクリームでふたをします。",
+        "sources": [
+          {
+            "name": "シナリー公式サイト",
+            "url": "https://www.sinary.com/products/item?id=R2N"
+          },
+          {
+            "name": "シナリー ゆいまある（販社ニュース）",
+            "url": "https://uimaru.sinary.com/News/Distributor/DistributorNewsDetails?cid=375&kind=0&sCode="
+          }
+        ]
+      },
+      {
+        "region": "日本",
+        "telop": "コラーゲンZJの成分",
+        "title": "コラーゲンゼリー「COLLAGEN ZJ」の成分を掘り下げ：プロテオグリカン・コラーゲン複合体",
+        "summary": "機能性表示食品（届出番号J915、肌の分野）として受理されたざくろ味のゼリーです。1本にコラーゲンペプチド4,000mgと、サケの鼻軟骨からとった「プロテオグリカン・コラーゲン複合体」40mgが入っています。",
+        "detail": "プロテオグリカンは、もともと軟骨の中で水をたっぷり抱えこむ成分です。「非変性II型コラーゲン」は、熱を加えずにとり出して、もとの形を保ったII型コラーゲンのこと。肌などで多いI型とはちがい、II型は軟骨に多いコラーゲンです。",
+        "sources": [
+          {
+            "name": "シナリー公式サイト",
+            "url": "https://www.sinary.com/products/item.aspx?id=CZJ"
+          },
+          {
+            "name": "機能性表示食品データベース（民間）",
+            "url": "https://yakujihou-marketing.net/database/j915/"
+          }
+        ]
+      }
+    ],
     "realestate": [
       {
         "region": "日本",
