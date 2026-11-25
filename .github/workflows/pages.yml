@@ -1,6 +1,6 @@
 # =============================================================
 # GitHub Pages への公開（main が更新されるたびに動きます）
-# クラゲのニューストピックの記事を「VOICEVOX:冥鳴ひまり」の声で音声にしてから、サイト全体を公開します。
+# クラゲのニューストピックの記事を VOICEVOX の声（青山龍星・ずんだもん・冥鳴ひまり）で音声にしてから、サイト全体を公開します。
 # 音声はリポジトリには入れず、その日の公開サイトにだけ載せます（古い日の音声は残りません）。
 # 音声が作れなかったときも、サイトはふつうに公開されます（アプリは端末の声で読みます）。
 # =============================================================
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +45,7 @@ jobs:
           done
           echo "VOICEVOX ENGINE が起動しませんでした"; exit 1
 
-      - name: 冥鳴ひまりの声で音声を作る
+      - name: VOICEVOX の声で音声を作る
         if: steps.engine.outcome == 'success'
         continue-on-error: true
         run: |
@@ -57,7 +57,7 @@ jobs:
         if: hashFiles('kurage/audio/manifest.json') != ''
         run: |
           rm -rf vv-cache && mkdir vv-cache
-          cp kurage/audio/*.mp3 vv-cache/ 2>/dev/null || true
+          cp -r kurage/audio/. vv-cache/ && rm -f vv-cache/manifest.json
 
       - uses: actions/cache/save@v4
         if: hashFiles('kurage/audio/manifest.json') != ''
