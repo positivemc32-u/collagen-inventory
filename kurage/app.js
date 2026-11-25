@@ -73,8 +73,9 @@ const DEFAULT_STATE = {
   // 天気の地域（市町村の名前と緯度・経度）。ここには書かず「⚙️ 設定」で選ぶ
   weather: { name: '', lat: '', lon: '' },
   // 読み上げの声：'device'（端末の声）か 'sakura'（さくらのAI Engine の VOICEVOX の声）
-  // premade：毎朝作っておいた「冥鳴ひまり」の音声があれば、それで読む（無料・だれでも同じ声）
-  tts: { engine: 'device', model: 'himari', voice: 'normal', premade: true },
+  // premade：毎朝作っておいた VOICEVOX の音声があれば、それで読む（無料）
+  // premadeVoice：その声（13 青山龍星／3 ずんだもん／14 冥鳴ひまり）
+  tts: { engine: 'device', model: 'himari', voice: 'normal', premade: true, premadeVoice: 13 },
   voice: 'male',
   voiceURI: '', // 「声をくわしく選ぶ」で選んだ端末の声
   rate: 1,
@@ -568,6 +569,9 @@ const vv = {
   },
   // iPhone では、ボタンを押したときに一度鳴らしておかないと、あとから音が出せない
   unlock() {
+    // 最初の1回だけ無音を鳴らす（前に流した音声をもう一度鳴らさないように）
+    if (this.unlocked) return;
+    this.unlocked = true;
     try {
       const a = this.el();
       if (!a.src) a.src = audioFocus.url || (audioFocus.url = audioFocus.silentUrl());
@@ -599,30 +603,56 @@ const vv = {
   stop() { try { if (this.audio) { this.audio.onended = null; this.audio.onerror = null; this.audio.pause(); } } catch { /* なにもしない */ } },
 };
 
-// ---------- 毎朝作っておいた「冥鳴ひまり」の音声 ----------
+// ---------- 毎朝作っておいた VOICEVOX の音声（青山龍星・ずんだもん・冥鳴ひまり） ----------
 // ニュースの更新のときに GitHub が VOICEVOX で作って、このアプリと同じ場所（audio/）に置きます。
 // 料金はかかりません。天気・占い・地元のニュースなど端末ごとにちがう記事は、ここにはありません。
+const PREMADE_VOICES = [
+  { id: 13, name: '青山龍星', note: '落ち着いた低めの男性の声' },
+  { id: 3, name: 'ずんだもん', note: '明るく元気な声' },
+  { id: 14, name: '冥鳴ひまり', note: 'やわらかい女性の声' },
+];
 const premade = {
-  files: new Set(),
+  voices: [],
+  files: {}, // 声のID → Set(ファイル名)
+  dirOf: {}, // 声のID → 置き場所
   date: '',
-  credit: '',
   failed: false,
   async load() {
     try {
       const r = await fetch('audio/manifest.json', { cache: 'no-cache' });
       if (!r.ok) return;
       const m = await r.json();
-      this.files = new Set(m.files || []);
       this.date = m.date || '';
-      this.credit = m.credit || '';
+      if (Array.isArray(m.files)) {
+        // 前の形（冥鳴ひまりだけ）
+        this.voices = [{ id: 14, name: '冥鳴ひまり', credit: m.credit || 'VOICEVOX:冥鳴ひまり' }];
+        this.files = { 14: new Set(m.files) };
+        this.dirOf = { 14: 'audio/' };
+      } else {
+        this.voices = m.voices || [];
+        this.files = {};
+        this.dirOf = {};
+        for (const v of this.voices) {
+          this.files[v.id] = new Set((m.files || {})[v.id] || []);
+          this.dirOf[v.id] = `audio/${v.id}/`;
+        }
+      }
     } catch { /* 音声がなくても端末の声で読む */ }
   },
-  enabled() { return state.tts.premade !== false && !this.failed && this.files.size > 0; },
+  // 選んでいる声（その声の音声がなければ、ある声に切りかえる）
+  voice() {
+    const want = Number(state.tts.premadeVoice) || 13;
+    return this.voices.find((v) => v.id === want && this.files[v.id]?.size) || this.voices.find((v) => this.files[v.id]?.size) || null;
+  },
+  count() { const v = this.voice(); return v ? this.files[v.id].size : 0; },
+  enabled() { return state.tts.premade !== false && !this.failed && !!this.voice(); },
   urlFor(text) {
     if (!this.enabled()) return '';
+    const v = this.voice();
     const name = `${KurageSpeech.textKey(text)}.mp3`;
-    return this.files.has(name) ? `audio/${name}` : '';
+    return this.files[v.id].has(name) ? this.dirOf[v.id] + name : '';
   },
+  firstUrl() { const v = this.voice(); if (!v) return ''; const [f] = this.files[v.id]; return f ? this.dirOf[v.id] + f : ''; },
 };
 
 // iPhone などでは、ページが「音を再生中」になると、ほかのアプリの音楽が止まります。
@@ -1027,10 +1057,8 @@ function openSettings(focusBirth = false) {
   $('wxQuery').value = state.weather.name || '';
   $('wxPick').hidden = true;
   $('wxNow').textContent = state.weather.name ? `いまの地域：${state.weather.name}` : 'まだ選ばれていません。';
-  $('preOn').checked = state.tts.premade !== false;
-  $('preNote').textContent = premade.files.size
-    ? `✅ ${jpDate(premade.date)}のニュース ${premade.files.size} 本ぶんの音声があります。`
-    : 'まだ今日の音声がありません（毎朝のニュース更新のあと、しばらくするとできます）。';
+  $('preVoice').value = state.tts.premade === false ? 'off' : String(state.tts.premadeVoice || 13);
+  renderPreNote();
   $('vvOn').checked = state.tts.engine === 'sakura';
   $('vvToken').value = getVvToken();
   $('vvModel').value = state.tts.model || '';
@@ -1059,12 +1087,21 @@ function renderToggles() {
 }
 
 // VOICEVOX の声を使うときは、クレジットを表示する（キャラクターの利用規約）
+function renderPreNote() {
+  const v = premade.voice();
+  const want = Number(state.tts.premadeVoice) || 13;
+  $('preNote').textContent = state.tts.premade === false ? '端末の声（または下のさくらのAI Engine）で読みます。'
+    : !v ? 'まだ今日の音声がありません（毎朝のニュース更新のあと、しばらくするとできます）。'
+    : `✅ ${jpDate(premade.date)}のニュース ${premade.count()} 本ぶんの「${v.name}」の音声があります。`
+      + (v.id !== want ? `（選んだ声の音声がまだないので、いまは${v.name}で読みます）` : '');
+}
+
 function renderCredit() {
   const el = $('vvCredit');
   if (!el) return;
   const sakura = state.tts.engine === 'sakura' && !!getVvToken();
   const lines = [];
-  if (premade.enabled()) lines.push(`🎙 ニュースの読み上げ：${premade.credit || 'VOICEVOX:冥鳴ひまり'}`);
+  if (premade.enabled()) lines.push(`🎙 ニュースの読み上げ：${premade.voice().credit || 'VOICEVOX:' + premade.voice().name}`);
   if (sakura) lines.push(`🎙 ${premade.enabled() ? 'そのほかの' : ''}読み上げ：VOICEVOX:${/himari|ひまり/i.test(state.tts.model) ? '冥鳴ひまり' : state.tts.model}（さくらのAI Engine）`);
   el.hidden = !lines.length;
   el.textContent = lines.join('\n');
@@ -1152,7 +1189,8 @@ function setupSettings() {
   });
   // 🎙 VOICEVOX の声
   const saveVv = () => {
-    state.tts = { premade: $('preOn').checked, engine: $('vvOn').checked ? 'sakura' : 'device', model: $('vvModel').value.trim() || 'himari', voice: $('vvVoice').value.trim() || 'normal' };
+    const pv = $('preVoice').value;
+    state.tts = { premade: pv !== 'off', premadeVoice: pv === 'off' ? (state.tts.premadeVoice || 13) : Number(pv), engine: $('vvOn').checked ? 'sakura' : 'device', model: $('vvModel').value.trim() || 'himari', voice: $('vvVoice').value.trim() || 'normal' };
     try {
       if ($('vvToken').value.trim()) localStorage.setItem(VV_TOKEN_KEY, $('vvToken').value.trim());
       else localStorage.removeItem(VV_TOKEN_KEY);
@@ -1164,7 +1202,19 @@ function setupSettings() {
     renderCredit();
     player.prepare();
   };
-  ['preOn', 'vvOn', 'vvToken', 'vvModel', 'vvVoice'].forEach((id) => $(id).addEventListener('change', saveVv));
+  ['preVoice', 'vvOn', 'vvToken', 'vvModel', 'vvVoice'].forEach((id) => $(id).addEventListener('change', saveVv));
+  $('preVoice').addEventListener('change', renderPreNote);
+  $('btnPreTest').addEventListener('click', () => {
+    saveVv();
+    const url = premade.enabled() && premade.firstUrl();
+    if (!url) { $('preNote').textContent = '⚠️ いまはこの声の音声がありません。'; return; }
+    synth && synth.cancel();
+    const a = vv.el();
+    a.onended = null; a.onerror = null;
+    a.src = url;
+    a.playbackRate = Math.max(0.5, Math.min(2, state.rate));
+    a.play().catch(() => {});
+  });
   $('btnVvTest').addEventListener('click', async () => {
     saveVv();
     const st = $('vvStatus');
